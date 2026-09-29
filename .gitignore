@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# GUARDIAN
+node_modules/
+.tools/
+*.tsbuildinfo
+
