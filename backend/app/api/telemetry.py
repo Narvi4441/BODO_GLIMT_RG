@@ -1,8 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.schemas.telemetry import TelemetryIn
 from app.realtime.websocket import manager
-
+from app.services.journey_state import get_journey
 
 router = APIRouter(
     prefix="/api/telemetry",
@@ -14,12 +14,32 @@ router = APIRouter(
 async def receive_telemetry(
     telemetry: TelemetryIn
 ):
-    # Convertimos los datos recibidos
+    journey = get_journey(
+        telemetry.journey_id
+    )
+
+    if not journey:
+        raise HTTPException(
+            status_code=404,
+            detail="Journey not found"
+        )
+
+    if journey["status"] != "ACTIVE":
+        raise HTTPException(
+            status_code=409,
+            detail="Journey is not active"
+        )
+
+    if journey["user_id"] != telemetry.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="User does not own this journey"
+        )
+
     data = telemetry.model_dump(
         mode="json"
     )
 
-    # Los enviamos en tiempo real por WebSocket
     await manager.broadcast(
         telemetry.journey_id,
         {
@@ -28,7 +48,6 @@ async def receive_telemetry(
         }
     )
 
-    # Confirmamos al dispositivo que recibimos la telemetría
     return {
         "status": "accepted",
         "journey_id": telemetry.journey_id

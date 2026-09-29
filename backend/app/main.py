@@ -1,16 +1,8 @@
-from fastapi import WebSocket, WebSocketDisconnect
-
-from app.realtime.websocket import manager
-
-from fastapi import (
-    FastAPI,
-    WebSocket,
-    WebSocketDisconnect,
-)
-
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.api.commands import router as commands_router
 from app.api.telemetry import router as telemetry_router
+from app.api.journeys import router as journeys_router
 from app.realtime.websocket import manager
 
 
@@ -29,9 +21,9 @@ app.add_middleware(
 )
 
 
-app.include_router(
-    telemetry_router
-)
+app.include_router(telemetry_router)
+app.include_router(journeys_router)
+app.include_router(commands_router)
 
 
 @app.get("/")
@@ -42,9 +34,7 @@ async def root():
     }
 
 
-@app.websocket(
-    "/ws/journeys/{journey_id}"
-)
+@app.websocket("/ws/journeys/{journey_id}")
 async def journey_websocket(
     websocket: WebSocket,
     journey_id: str,
@@ -62,25 +52,4 @@ async def journey_websocket(
         manager.disconnect(
             journey_id,
             websocket,
-        )
-        
-        
-@app.websocket("/ws/journeys/{journey_id}")
-async def journey_websocket(
-    websocket: WebSocket,
-    journey_id: str
-):
-    await manager.connect(
-        journey_id,
-        websocket
-    )
-
-    try:
-        while True:
-            await websocket.receive_text()
-
-    except WebSocketDisconnect:
-        manager.disconnect(
-            journey_id,
-            websocket
         )
