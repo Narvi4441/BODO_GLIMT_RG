@@ -126,7 +126,7 @@ async def receive_telemetry(
             {
                 "type": "command",
                 "data": automatic_command,
-            },
+            }, 
         )
 
     # 10. Guardar nuevo estado de riesgo
