@@ -4,7 +4,7 @@ import redis
 import time
 
 
-r = redis.Redis(host='localhost', port=6380, db=0, decode_responses=True)
+r = redis.Redis(host='localhost', port=6379, db=5, decode_responses=True)
 REDIS_GEO_KEY = "acompanamiento:cdmx:c5"
 
 def extraer_datos_c5_api():
