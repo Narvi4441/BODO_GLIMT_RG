@@ -1,5 +1,5 @@
 from sqlalchemy import text, create_engine
-from config import Config
+from app.core.config import Config
 import redis
 import requests
 

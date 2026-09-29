@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>GUARDIAN CORE · Mockup UI</title>
+<title>GUARDIAN CORE</title>
+<meta name="guardian-api-base" content="" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'" />
@@ -85,6 +86,16 @@
   @keyframes sosp { 50% { opacity: .35 } }
   ::-webkit-scrollbar { width: 6px } ::-webkit-scrollbar-thumb { background: rgb(var(--mute) / .4); border-radius: 9px }
   .hidden-x { display: none !important; }
+  #login { overflow-y: auto; overscroll-behavior: contain; z-index: 3000; }
+  body.account-open #themeBtn { visibility: hidden; }
+  #loginForm, #registerForm { max-height: calc(100dvh - 32px); overflow-y: auto; }
+  .field[aria-invalid=true] { border-color: #EF4444; }
+  .auth-error { color: #EF4444; font-size: 12px; margin-top: 5px; }
+  .auth-message { font-size: 13px; line-height: 1.5; padding: 12px; border-radius: 12px; border: 1px solid rgb(var(--line)/.2); margin-top: 16px; }
+  #login button:disabled { opacity: .55; cursor: wait; }
+  #registerForm fieldset { border: 0; min-width: 0; padding: 0; margin: 18px 0; }
+  #registerForm legend { font-size: 12px; letter-spacing: .12em; margin-bottom: 12px; }
+  @media (max-width: 767px) { #login input, #login select { font-size: 16px; } }
   .fade { animation: fadein .4s ease both; } @keyframes fadein { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
 </style>
 </head>
@@ -109,23 +120,45 @@
         <p id="loginSub" class="text-sm text-mute mt-1">Selecciona tu perfil para entrar a la consola.</p>
         <div id="roles" class="grid grid-cols-2 gap-2 mt-5">
           <button type="button" data-role="user" class="chip on text-left !p-3 !rounded-2xl"><div class="text-xl">🎓</div><div class="mt-1 text-sm font-semibold">Usuario</div><div class="text-[11px] text-mute">Estudiante / Ciudadano</div></button>
-          <button type="button" data-role="admin" class="chip text-left !p-3 !rounded-2xl"><div class="text-xl">📡</div><div class="mt-1 text-sm font-semibold">Administrador</div><div class="text-[11px] text-mute">Centro de Monitoreo C5</div></button>
+          <button type="button" data-role="admin" class="chip text-left !p-3 !rounded-2xl"><div class="text-xl">📡</div><div class="mt-1 text-sm font-semibold">Administrador</div><div class="text-[11px] text-mute">Centro de Monitoreo C5 · Demo</div></button>
         </div>
         <div class="mt-5 space-y-3">
-          <div><label class="lbl" for="em">Correo</label><input id="em" type="email" autocomplete="email" class="field mt-1" placeholder="mia@correo.com" />
+          <div id="emBox"><label class="lbl" for="em">Correo</label><input id="em" type="email" autocomplete="email" class="field mt-1" placeholder="mia@correo.com" maxlength="100" />
             <p id="emErr" class="text-xs text-danger mt-1 hidden-x">Ingresa un correo válido.</p></div>
           <div id="pwBox"><label class="lbl" for="pw">Contraseña</label>
-            <div class="relative mt-1"><input id="pw" type="password" autocomplete="current-password" class="field pr-10" placeholder="••••••••" />
+            <div class="relative mt-1"><input id="pw" type="password" autocomplete="current-password" class="field pr-10" placeholder="••••••••" maxlength="128" />
               <button type="button" id="pwEye" aria-label="Mostrar contraseña" class="absolute right-3 top-1/2 -translate-y-1/2 text-mute">👁</button></div>
-            <div id="pwBars" class="flex gap-1 mt-2"><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div></div>
-            <ul id="pwRules" class="grid grid-cols-2 gap-x-3 mt-2 text-[11px]"></ul></div>
-          <div id="sentMsg" class="hidden-x text-sm rounded-xl bg-safe/10 border border-safe/30 p-4">✓ Si el correo existe, recibirás instrucciones para restablecer tu contraseña.</div>
+            <p id="loginPwErr" class="auth-error hidden-x">Ingresa tu contraseña.</p></div>
+          <div id="sentMsg" class="hidden-x text-sm rounded-xl bg-warn/10 border border-warn/30 p-4">La recuperación por correo todavía no está conectada. No se ha enviado ningún mensaje.</div>
         </div>
+        <div id="loginMessage" class="auth-message hidden-x" role="status" aria-live="polite"></div>
         <div class="mt-6 flex flex-col gap-3 items-center">
           <button type="submit" id="loginBtn" class="metal w-full">Iniciar Sesión</button>
           <button type="button" id="recoverLink" class="text-xs text-mute underline underline-offset-4">¿Olvidaste tu contraseña?</button>
-          <p class="text-[10px] text-mute text-center">Mockup: cualquier correo válido y contraseña que cumpla 3 de 4 reglas.</p>
+          <button type="button" id="createAccount" class="text-sm text-cobalt underline underline-offset-4">Crear cuenta</button>
+          <p id="authHint" class="text-[10px] text-mute text-center">El acceso de usuario verifica tu contraseña con el backend. La consola administrativa es una demostración.</p>
         </div>
+      </form>
+      <form id="registerForm" novalidate class="glass fade hidden-x w-full max-w-md rounded-3xl p-6 sm:p-8 relative" aria-labelledby="registerTitle">
+        <button type="button" id="registerClose" aria-label="Cerrar registro" class="absolute right-4 top-4 text-mute text-lg">✕</button>
+        <h2 id="registerTitle" class="font-display font-extrabold text-xl">CREAR CUENTA</h2>
+        <p class="text-sm text-mute mt-1">Registra tu cuenta de usuario y a tu contacto de emergencia. Necesitas conexión.</p>
+        <fieldset class="space-y-3"><legend class="text-cobalt">USUARIO</legend>
+          <div><label class="lbl" for="regName">Nombre completo</label><input id="regName" name="nombre_completo" class="field mt-1" autocomplete="name" maxlength="150" required aria-describedby="regNameErr"/><p id="regNameErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regPhone">Teléfono</label><input id="regPhone" name="telefono" class="field mt-1" type="tel" autocomplete="tel" maxlength="30" placeholder="10 a 15 dígitos" required aria-describedby="regPhoneErr"/><p id="regPhoneErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regEmail">Correo electrónico</label><input id="regEmail" name="email" class="field mt-1" type="email" autocomplete="email" maxlength="100" required aria-describedby="regEmailErr"/><p id="regEmailErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regPassword">Contraseña</label><input id="regPassword" name="password" class="field mt-1" type="password" autocomplete="new-password" minlength="8" maxlength="128" required aria-describedby="regPasswordErr regPasswordHint"/><p id="regPasswordHint" class="text-xs text-mute mt-1">Entre 8 y 128 caracteres. No uses solo espacios.</p><p id="regPasswordErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regConfirm">Confirmar contraseña</label><input id="regConfirm" name="confirm_password" class="field mt-1" type="password" autocomplete="new-password" maxlength="128" required aria-describedby="regConfirmErr"/><p id="regConfirmErr" class="auth-error hidden-x"></p></div>
+        </fieldset>
+        <fieldset class="space-y-3"><legend class="text-cobalt">TUTOR / CONTACTO DE EMERGENCIA</legend>
+          <div><label class="lbl" for="regTutorName">Nombre completo del tutor</label><input id="regTutorName" class="field mt-1" autocomplete="section-tutor name" maxlength="150" required aria-describedby="regTutorNameErr"/><p id="regTutorNameErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regTutorPhone">Teléfono del tutor</label><input id="regTutorPhone" class="field mt-1" type="tel" autocomplete="section-tutor tel" maxlength="30" required aria-describedby="regTutorPhoneErr"/><p id="regTutorPhoneErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regTutorEmail">Correo del tutor</label><input id="regTutorEmail" class="field mt-1" type="email" autocomplete="section-tutor email" maxlength="100" required aria-describedby="regTutorEmailErr"/><p id="regTutorEmailErr" class="auth-error hidden-x"></p></div>
+          <div><label class="lbl" for="regRelation">Relación con el usuario</label><input id="regRelation" class="field mt-1" maxlength="50" placeholder="Madre, padre, familiar…" required aria-describedby="regRelationErr"/><p id="regRelationErr" class="auth-error hidden-x"></p></div>
+        </fieldset>
+        <div id="registerMessage" class="auth-message hidden-x" role="status" aria-live="polite"></div>
+        <button type="submit" id="registerBtn" class="metal w-full mt-4">Crear cuenta</button>
+        <button type="button" id="registerBack" class="text-xs text-mute underline underline-offset-4 w-full mt-4">← Volver al login</button>
       </form>
     </div>
 </div>
@@ -150,7 +183,7 @@
           <div class="min-w-0"><div class="font-semibold truncate" id="pName">Mia Alexandra Sánchez</div><div class="text-xs text-mute truncate" id="pEmail">mia@correo.com</div></div>
         </div>
         <div class="space-y-2"><div class="lbl">🚨 Contacto de emergencia (Tutor)</div>
-          <input class="field" id="tName" value="Laura Sánchez (Tutor)" /><input class="field" id="tPhone" value="+52 55 0000 0000" inputmode="tel" /></div>
+          <input class="field" id="tName" value="Laura Sánchez (Tutor)" /><input class="field" id="tPhone" value="+52 55 0000 0000" inputmode="tel" /><p class="text-[10px] text-mute">Los cambios de contacto en esta vista son locales; aún no se guardan en PostgreSQL.</p></div>
         <div class="space-y-2"><div class="lbl">⚙ Ajustes de cuenta</div>
           <label class="flex justify-between items-center text-sm gap-3">Espera del “¿Todo bien?”<select id="tOut" class="field !w-auto"><option value="60">1 min</option><option value="90" selected>1.5 min</option><option value="180">3 min</option></select></label>
           <label class="flex justify-between items-center text-sm gap-3">Notificaciones de riesgo<input type="checkbox" id="tNotif" checked class="accent-blue-500 w-4 h-4" /></label></div>
@@ -319,7 +352,7 @@ $('#themeBtn').onclick = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 /* ================= LANDING ================= */
 const landingEl = $('#landing');
 let loginOpen = false;
-function setLogin(on) { loginOpen = on; $('#login').style.display = on ? 'flex' : 'none'; if (on) setTimeout(() => $('#em').focus(), 50); }
+function setLogin(on) { if (accountUI.isBusy()) return; if (on) accountUI.resetAccountViews(); loginOpen = on; document.body.classList.toggle('account-open', on); $('#login').style.display = on ? 'flex' : 'none'; if (on) setTimeout(() => $('#em').focus(), 50); }
 // Los listeners se registran PRIMERO para que el botón responda aunque otra parte falle
 $('#accessBtn').addEventListener('click', () => setLogin(true));
 $('#loginClose').addEventListener('click', () => setLogin(false));
@@ -354,36 +387,13 @@ try {
   startGlobe();
 } catch (err) { console.warn('Globo no disponible:', err); }
 
-/* ================= LOGIN ================= */
-let role = 'user', mode = 'login', touched = false;
-const RULES = [['Mínimo 8 caracteres', p => p.length >= 8], ['Una mayúscula', p => /[A-Z]/.test(p)], ['Un número', p => /\d/.test(p)], ['Un símbolo', p => /[^A-Za-z0-9]/.test(p)]];
-function pwUpdate() {
-  const p = $('#pw').value, ok = RULES.filter(r => r[1](p)).length, col = ['bg-danger', 'bg-danger', 'bg-warn', 'bg-cobalt', 'bg-safe'][ok];
-  $$('#pwBars div').forEach((d, i) => { d.className = 'h-1 flex-1 rounded ' + (i < ok ? col : 'bg-line/10'); });
-  $('#pwRules').innerHTML = RULES.map(r => `<li class="${r[1](p) ? 'text-safe' : 'text-mute'}">${r[1](p) ? '✓' : '○'} ${r[0]}</li>`).join('');
-  return ok;
-}
-$('#pw').addEventListener('input', pwUpdate); pwUpdate();
-$('#pwEye').onclick = () => { const i = $('#pw'); i.type = i.type === 'password' ? 'text' : 'password'; };
-$$('#roles button').forEach(b => b.onclick = () => { role = b.dataset.role; $$('#roles button').forEach(x => x.classList.toggle('on', x === b)); $('#loginBtn').textContent = role === 'admin' ? 'Iniciar Sesión · Centro de Control' : 'Iniciar Sesión'; });
-$('#recoverLink').onclick = () => {
-  mode = mode === 'login' ? 'recover' : 'login'; const rec = mode === 'recover';
-  $('#loginTitle').textContent = rec ? 'RECUPERAR CUENTA' : 'ACCESO'; $('#loginSub').textContent = rec ? 'Te enviaremos un enlace para restablecer tu contraseña.' : 'Selecciona tu perfil para entrar a la consola.';
-  hid($('#roles'), rec); hid($('#pwBox'), rec); hid($('#sentMsg'), true); $('#loginBtn').textContent = rec ? 'Enviar enlace' : 'Iniciar Sesión';
-  $('#recoverLink').textContent = rec ? '← Volver' : '¿Olvidaste tu contraseña?';
-};
-$('#loginForm').addEventListener('submit', e => {
-  e.preventDefault(); touched = true;
-  const em = $('#em').value.trim(), emOk = /^\S+@\S+\.\S+$/.test(em); hid($('#emErr'), emOk);
-  if (!emOk) return;
-  if (mode === 'recover') { hid($('#sentMsg'), false); return; }
-  if (pwUpdate() < 3 || $('#pw').value.length < 8) { $('#pw').focus(); return; }
-  enterApp(role, em);
-});
+/* ================= LOGIN (handlers en auth.js) ================= */
 
 /* ================= APP: entrar / salir ================= */
 const profile = { name: 'Mia Alexandra Sánchez', email: 'mia@correo.com', photo: null };
+let viewTransition = 0;
 function enterApp(r, email) {
+  const transition = ++viewTransition;
   profile.email = email; $('#pEmail').textContent = email;
   // a) Landing: fade-out
   landingEl.style.opacity = '0'; landingEl.style.pointerEvents = 'none';
@@ -391,18 +401,19 @@ function enterApp(r, email) {
   const app = $('#app'); app.style.opacity = '0'; app.style.transition = 'opacity .45s ease'; show(app, true);
   if (r === 'admin') { show($('#viewUser'), false); show($('#viewAdmin'), true); initAdmin(); }
   else { show($('#viewAdmin'), false); show($('#viewUser'), true); initUser(); }
-  setTimeout(() => { app.style.opacity = '1'; }, 30);
+  setTimeout(() => { if (transition === viewTransition) app.style.opacity = '1'; }, 30);
   // c) Leaflet recalcula su tamaño sobre el contenedor ya visible
   const fix = () => maps.forEach(o => o.m.invalidateSize());
   setTimeout(() => { fix(); if (r !== 'admin' && U) fitRoutes(); }, 100);
   setTimeout(fix, 500);
-  setTimeout(() => { show(landingEl, false); setLogin(false); globeOn = false; }, 480);
+  setTimeout(() => { if (transition === viewTransition) { show(landingEl, false); setLogin(false); globeOn = false; } }, 480);
 }
 $$('[data-logout]').forEach(b => b.addEventListener('click', () => {
+  const transition = ++viewTransition;
   stopTrip(true); const app = $('#app'); app.style.opacity = '0';
   show(landingEl, true); setLogin(false); landingEl.style.pointerEvents = 'auto';
-  setTimeout(() => { landingEl.style.opacity = '1'; }, 30); startGlobe();
-  setTimeout(() => show(app, false), 460);
+  setTimeout(() => { if (transition === viewTransition) landingEl.style.opacity = '1'; }, 30); startGlobe();
+  setTimeout(() => { if (transition === viewTransition) show(app, false); }, 460);
 }));
 
 /* ================= GEOLOCALIZACIÓN (navigator.geolocation) ================= */
@@ -608,7 +619,9 @@ function action(a, id) {
 }
 
 setTheme(theme);
+const accountUI = window.initGuardianAuth({ $, $$, hid, profile, enterApp, notice, setLogin });
 }); // fin DOMContentLoaded
 </script>
+<script src="auth.js"></script>
 </body>
 </html>
