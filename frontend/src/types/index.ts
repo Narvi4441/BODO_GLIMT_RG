@@ -7,7 +7,7 @@ export interface Telemetry {
   journey_id: string; user_id: string; latitude: number; longitude: number;
   accuracy: number | null; speed: number | null; heading: number | null;
   battery: number | null; latency_ms: number | null; packet_loss: null;
-  network_status: NetworkStatus; route_deviation_m: null; timestamp: string;
+  network_status: NetworkStatus; route_deviation_m: number | null; timestamp: string;
 }
 export type AckStatus = 'RECEIVED' | 'EXECUTING' | 'EXECUTED' | 'FAILED'
 export interface Command { command_id: string; journey_id: string; user_id: string; action: string; value: string | number | null; status: string; message?: string }
@@ -26,3 +26,18 @@ export interface RoutePlan {
   destinationName: string; destinationAddress: string;
   distance_m: number; duration_s: number; path: Coordinate[];
 }
+export interface TracePoint extends Coordinate { source: 'REAL' | 'DEMO'; timestamp: string }
+export interface SafetyCamera extends Coordinate {
+  id: string; hasCamera: boolean; hasHelpButton: boolean; hasSpeaker: boolean; distance_m?: number;
+}
+export interface RiskZone {
+  zone_id: string; center: Coordinate; radius_m: number; incident_count: number; severity: 'YELLOW' | 'RED';
+}
+export interface DemoState { distance: number; moving: boolean; gpsAvailable: boolean; offset: 0 | 150 | 350 }
+export interface DeviationEvent extends TracePoint { distance_m: number }
+export interface EvidenceSnapshot {
+  journey_id: string; destination: Destination | null; planned_path: Coordinate[]; actual_trace: TracePoint[];
+  max_risk_status: RiskStatus | null; max_risk_score: number | null; deviation_events: DeviationEvent[];
+  incident_note?: string;
+}
+export interface SavedEvidence extends EvidenceSnapshot { evidence_id: string; saved_at: number; expires_at: number }

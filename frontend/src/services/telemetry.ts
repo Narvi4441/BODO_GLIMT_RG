@@ -1,7 +1,8 @@
 import { api, ApiError } from './api'
 import { offline } from './offline'
 import { JourneySocket } from './websocket'
-import type { AckStatus, Command, Journey, NetworkStatus, PendingItem, RealtimeEvent, Risk, Telemetry } from '../types'
+import { routeDeviation } from './demoScenario'
+import type { AckStatus, Command, Coordinate, Journey, NetworkStatus, PendingItem, RealtimeEvent, Risk, Telemetry } from '../types'
 
 export interface JourneyState {
   ready: boolean; journey: Journey | null; acquiring: boolean; stopPending: boolean;
@@ -43,6 +44,24 @@ export class TelemetryController {
   // Mantiene los puntos en memoria si IndexedDB falla; se muestra el fallo, nunca éxito falso.
   private unsaved: PendingItem[] = []
   private capturesStopped = false
+  private routePath: Coordinate[] = []
+  private demo = false
+
+  setRoutePath(path: Coordinate[]) { this.routePath = path }
+  setDemoMode(enabled: boolean) {
+    this.demo = enabled
+    if (enabled) this.pauseAcquisition()
+    // No presentar el último punto sintético como GPS real al salir.
+    this.update({ point: null, gpsError: '' })
+  }
+  async submitDemoPosition(position: Coordinate, speed: number) {
+    if (!this.demo || this.sampling || this.state.acquiring || this.state.busy || this.state.storageError
+      || this.stopped || this.state.stopPending || this.state.journey?.status !== 'ACTIVE') return
+    this.sampling = this.storePosition({ timestamp: Date.now(), coords: {
+      latitude: position.lat, longitude: position.lng, accuracy: 5, speed, heading: null,
+    } }).finally(() => { this.sampling = undefined })
+    await this.sampling
+  }
 
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   snapshot = () => this.state
@@ -139,7 +158,7 @@ export class TelemetryController {
     })().finally(() => { this.sampling = undefined })
     return this.sampling
   }
-  private async storePosition(position: GeolocationPosition) {
+  private async storePosition(position: { timestamp: number; coords: Pick<GeolocationCoordinates, 'latitude' | 'longitude' | 'accuracy' | 'speed' | 'heading'> }) {
     if (!this.state.journey) return
     const { coords, timestamp } = position
     const nonNegative = (value: number | null) => value !== null && Number.isFinite(value) && value >= 0 ? value : null
@@ -149,7 +168,7 @@ export class TelemetryController {
       speed: nonNegative(coords.speed), heading: nonNegative(coords.heading),
       battery: this.battery ? Math.round(this.battery.level * 100) : null,
       latency_ms: this.state.latency, packet_loss: null, network_status: this.state.network,
-      route_deviation_m: null, timestamp: new Date(timestamp).toISOString(),
+      route_deviation_m: routeDeviation({ lat: coords.latitude, lng: coords.longitude }, this.routePath), timestamp: new Date(timestamp).toISOString(),
     }
     this.update({ point, gpsError: '' })
     await this.enqueue({ kind: 'telemetry', payload: point })

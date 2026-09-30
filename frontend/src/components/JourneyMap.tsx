@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Coordinate } from '../types'
+import type { Coordinate, RiskZone, SafetyCamera } from '../types'
 import { loadGoogleMaps, onGoogleMapsFailure, type GoogleMapsApi, type MapInstance, type MapsLibrary, type OverlayInstance, type PolylineInstance } from '../services/googleMaps'
 
 interface Props {
@@ -7,6 +7,10 @@ interface Props {
   origin?: Coordinate | null
   destination?: Coordinate | null
   path?: Coordinate[]
+  plannedPath?: Coordinate[]
+  actualTrace?: Coordinate[]
+  safetyCameras?: SafetyCamera[]
+  riskZones?: RiskZone[]
   onReady?: (ready: boolean) => void
 }
 interface PositionMarker extends OverlayInstance { update(position: Coordinate | null | undefined): void }
@@ -14,13 +18,21 @@ interface MapSession {
   api: GoogleMapsApi
   map: MapInstance
   line: PolylineInstance
+  trace: PolylineInstance
+  library: MapsLibrary
   current: PositionMarker
   origin: PositionMarker
   destination: PositionMarker
 }
 const emptyPath: Coordinate[] = []
+const emptyCameras: SafetyCamera[] = []
+const emptyZones: RiskZone[] = []
+// Superficie adicional del SDK, local a este renderizador; el loader no cambia.
+interface CircleLibrary extends MapsLibrary {
+  Circle: new (options: { map: MapInstance; center: Coordinate; radius: number; fillColor: string; fillOpacity: number; strokeColor: string; strokeWeight: number; clickable: boolean }) => { setMap(map: MapInstance | null): void }
+}
 
-function marker(api: GoogleMapsApi, library: MapsLibrary, map: MapInstance, kind: string, label: string): PositionMarker {
+function marker(api: GoogleMapsApi, library: MapsLibrary, map: MapInstance, kind: string, label: string, detail = label): PositionMarker {
   class PositionOverlay extends library.OverlayView {
     private position: Coordinate | null = null
     private element = document.createElement('div')
@@ -28,9 +40,14 @@ function marker(api: GoogleMapsApi, library: MapsLibrary, map: MapInstance, kind
       super()
       this.element.className = `map-pin map-pin-${kind}`
       this.element.textContent = label
+      this.element.title = detail
+      if (kind === 'camera') {
+        this.element.tabIndex = 0
+        this.element.setAttribute('aria-label', detail)
+      }
       this.element.style.position = 'absolute'
       this.element.style.transform = 'translate(-50%, -50%)'
-      this.element.style.pointerEvents = 'none'
+      this.element.style.pointerEvents = kind === 'camera' ? 'auto' : 'none'
       this.setMap(map)
     }
     onAdd() { this.getPanes()?.overlayMouseTarget.appendChild(this.element) }
@@ -48,7 +65,8 @@ function marker(api: GoogleMapsApi, library: MapsLibrary, map: MapInstance, kind
   return new PositionOverlay()
 }
 
-export function JourneyMap({ currentPosition, origin, destination, path = emptyPath, onReady }: Props) {
+export function JourneyMap({ currentPosition, origin, destination, path: legacyPath, plannedPath, actualTrace = emptyPath, safetyCameras = emptyCameras, riskZones = emptyZones, onReady }: Props) {
+  const path = plannedPath ?? legacyPath ?? emptyPath
   const canvas = useRef<HTMLDivElement>(null)
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
@@ -87,6 +105,7 @@ export function JourneyMap({ currentPosition, origin, destination, path = emptyP
       const active = sessionRef.current
       if (active) {
         active.line.setMap(null)
+        active.trace.setMap(null)
         active.current.setMap(null)
         active.origin.setMap(null)
         active.destination.setMap(null)
@@ -106,8 +125,9 @@ export function JourneyMap({ currentPosition, origin, destination, path = emptyP
         fullscreenControl: false, clickableIcons: false, gestureHandling: 'cooperative',
       })
       const active: MapSession = {
-        api, map,
+        api, map, library,
         line: new library.Polyline({ map, path: [], strokeColor: '#12bfa3', strokeOpacity: 1, strokeWeight: 6, clickable: false }),
+        trace: new library.Polyline({ map, path: [], strokeColor: '#b87cff', strokeOpacity: 1, strokeWeight: 4, clickable: false }),
         current: marker(api, library, map, 'current', '●'),
         origin: marker(api, library, map, 'origin', 'O'),
         destination: marker(api, library, map, 'destination', 'D'),
@@ -150,6 +170,33 @@ export function JourneyMap({ currentPosition, origin, destination, path = emptyP
 
   useEffect(() => {
     if (!session) return
+    session.trace.setPath(actualTrace)
+  }, [session, actualTrace])
+
+  useEffect(() => {
+    if (!session) return
+    const markers = safetyCameras.map(camera => {
+      const detail = `${camera.id} · ${Math.round(camera.distance_m ?? 0)} m · Videovigilancia — SIMULACIÓN${camera.hasHelpButton ? ' · Botón de auxilio — SIMULACIÓN' : ''}${camera.hasSpeaker ? ' · Altavoz — SIMULACIÓN' : ''}`
+      const pin = marker(session.api, session.library, session.map, 'camera', 'C5', detail)
+      pin.update(camera)
+      return pin
+    })
+    return () => markers.forEach(pin => pin.setMap(null))
+  }, [session, safetyCameras])
+
+  useEffect(() => {
+    if (!session) return
+    const library = session.library as CircleLibrary
+    const circles = riskZones.map(zone => new library.Circle({
+      map: session.map, center: zone.center, radius: zone.radius_m,
+      fillColor: zone.severity === 'RED' ? '#ef445a' : '#f5c64e', fillOpacity: .2,
+      strokeColor: zone.severity === 'RED' ? '#ef445a' : '#f5c64e', strokeWeight: 1, clickable: false,
+    }))
+    return () => circles.forEach(circle => circle.setMap(null))
+  }, [session, riskZones])
+
+  useEffect(() => {
+    if (!session) return
     session.current.update(currentPosition)
     if (currentPosition && !path.length && !destination) session.map.panTo(currentPosition)
   }, [session, currentPosition?.lat, currentPosition?.lng, path.length, destination])
@@ -167,6 +214,10 @@ export function JourneyMap({ currentPosition, origin, destination, path = emptyP
         session?.map.setZoom(16)
       }}>⌖</button>}
       <div className="map-legend">
+        {path.length > 0 && <span><i className="map-dot"/>Ruta planeada</span>}
+        {actualTrace.length > 0 && <span><i className="map-dot trace"/>Trayectoria real/demo</span>}
+        {safetyCameras.length > 0 && <span>C5 DEMO</span>}
+        {riskZones.length > 0 && <span>Zonas DEMO</span>}
         {currentPosition && <span><i className="map-dot current" />Tu ubicación</span>}
         {origin && path.length > 0 && <span><i className="map-dot origin" />Origen</span>}
         {destination && <span><i className="map-dot destination" />Destino</span>}

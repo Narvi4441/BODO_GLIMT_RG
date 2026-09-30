@@ -1,16 +1,21 @@
 import { JourneyMap } from '../components/JourneyMap'
+import { DemoControls } from '../components/DemoControls'
+import { deviationLabel } from '../services/demoScenario'
 import type { JourneyState } from '../services/telemetry'
-import type { RoutePlan } from '../types'
+import type { Coordinate, DemoState, RiskZone, RoutePlan, SafetyCamera, TracePoint } from '../types'
 
 const number = (value: number | null | undefined, digits = 0) => value == null ? 'No disponible' : value.toFixed(digits)
 const distance = (meters: number) => meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toLocaleString('es-MX', { maximumFractionDigits: 1 })} km`
 const duration = (seconds: number) => `${Math.max(1, Math.ceil(seconds / 60))} min aprox.`
 
-export function ActiveJourney({ state: s, routePlan, stop, resume }: {
+export function ActiveJourney({ state: s, routePlan, stop, resume, currentPosition, actualTrace, deviation, demo, activateDemo, changeDemo, exitDemo, safetyCameras, riskZones, panic, emergencyMessage, emergencyRequested }: {
   state: JourneyState
   routePlan: RoutePlan | null
   stop: () => void
   resume: () => void
+  currentPosition: Coordinate | null; actualTrace: TracePoint[]; deviation: number | null;
+  demo: DemoState | null; activateDemo: () => void; changeDemo: (patch: Partial<DemoState>) => void; exitDemo: () => void;
+  safetyCameras: SafetyCamera[]; riskZones: RiskZone[]; panic: () => void; emergencyMessage: string; emergencyRequested: boolean;
 }) {
   const point = s.point
   const riskStatus = s.risk?.status || 'UNKNOWN'
@@ -18,17 +23,28 @@ export function ActiveJourney({ state: s, routePlan, stop, resume }: {
     <div className="page-intro active-heading">
       <span className="eyebrow">TU RECORRIDO</span>
       <h1>{s.stopPending ? 'Finalizando recorrido' : 'Contigo, en movimiento.'}</h1>
-      <span className={`activity-badge ${s.acquiring && !s.stopPending ? 'live' : ''}`}><i/>{s.stopPending ? 'Cierre pendiente' : s.acquiring ? 'GPS activo' : 'GPS pausado'}</span>
+      <span className={`activity-badge ${s.acquiring && !s.stopPending ? 'live' : ''}`}><i/>{s.stopPending ? 'Cierre pendiente' : demo ? demo.gpsAvailable ? 'GPS SIMULADO' : 'Pérdida GPS SIMULADA' : s.acquiring ? 'GPS activo' : 'GPS pausado'}</span>
     </div>
 
     <section className="map-section" aria-label="Mapa del recorrido">
       <JourneyMap
-        currentPosition={point ? { lat: point.latitude, lng: point.longitude } : null}
+        currentPosition={currentPosition}
         origin={routePlan?.origin}
         destination={routePlan?.destination}
-        path={routePlan?.path}
+        plannedPath={routePlan?.path}
+        actualTrace={actualTrace}
+        safetyCameras={safetyCameras}
+        riskZones={riskZones}
       />
     </section>
+    <p className="trace-legend">Turquesa: ruta planeada · Violeta: trayectoria {demo ? 'DEMO' : actualTrace.some(p => p.source === 'DEMO') ? 'mixta real/DEMO' : 'real'}</p>
+    <section className="panel deviation-panel"><span className="eyebrow">DESVIACIÓN {demo ? 'SIMULADA' : 'REAL'}</span><h2>{deviation === null ? 'Sin posición o ruta disponible' : deviationLabel(deviation)}</h2><p>Desviación actual: {deviation === null ? 'no disponible' : `${Math.round(deviation)} m`}</p></section>
+    {demo && <><DemoControls state={demo} change={changeDemo} exit={exitDemo}/>
+      <section className="panel demo-context"><h2>C5 DEMO · hasta 500 m</h2><p>Infraestructura de SIMULACIÓN.</p>
+        {safetyCameras.length ? <ul>{safetyCameras.map(camera => <li key={camera.id}><strong>{camera.id} · {Math.round(camera.distance_m!)} m</strong><br/>Videovigilancia — SIMULACIÓN{camera.hasHelpButton && <><br/>Botón de auxilio — SIMULACIÓN</>}{camera.hasSpeaker && <><br/>Altavoz — SIMULACIÓN</>}</li>)}</ul> : <p>No hay puntos DEMO dentro de 500 m de la posición disponible.</p>}
+        <h2>ESCENARIO ESTADÍSTICO DEMO</h2><p>Amarillo: incidencia contextual DEMO media.<br/>Rojo: incidencia contextual DEMO alta.</p>
+        <ul>{riskZones.map(zone => <li key={zone.zone_id}><strong>{zone.zone_id} · {zone.severity === 'RED' ? 'ROJA' : 'AMARILLA'}</strong> · Incidentes del escenario: {zone.incident_count} · {zone.severity === 'RED' ? 'Percentil superior' : 'Rango intermedio del dataset'}</li>)}</ul>
+      </section></>}
 
     {routePlan ? <section className="panel active-destination">
       <span className="step-label">TU DESTINO</span>
@@ -54,9 +70,9 @@ export function ActiveJourney({ state: s, routePlan, stop, resume }: {
     </section>
 
     <section className="panel location-panel">
-      <div className="section-title"><h2>Ubicación actual</h2><span className="badge">GPS REAL</span></div>
-      <div className="coordinates"><div><label>LATITUD</label><strong>{number(point?.latitude, 6)}</strong></div><div><label>LONGITUD</label><strong>{number(point?.longitude, 6)}</strong></div></div>
-      <p className="muted">{point ? new Date(point.timestamp).toLocaleString('es-MX') : 'Esperando una ubicación del dispositivo…'}</p>
+      <div className="section-title"><h2>Ubicación actual</h2><span className="badge">{demo ? 'GPS DEMO' : 'GPS REAL'}</span></div>
+      <div className="coordinates"><div><label>LATITUD</label><strong>{number(currentPosition?.lat, 6)}</strong></div><div><label>LONGITUD</label><strong>{number(currentPosition?.lng, 6)}</strong></div></div>
+      <p className="muted">{demo ? 'Posición de simulación. Métricas del último punto adquirido abajo.' : point ? new Date(point.timestamp).toLocaleString('es-MX') : 'Esperando una ubicación del dispositivo…'}</p>
     </section>
 
     <div className="section-title telemetry-heading"><h2>Telemetría y conexión</h2><span className={`network ${s.network}`}><i/>{s.network}</span></div>
@@ -74,10 +90,14 @@ export function ActiveJourney({ state: s, routePlan, stop, resume }: {
     {s.lastAck && <p className="ack" role="status">ACK · {s.lastAck}</p>}
 
     {!s.stopPending && <section className="journey-actions" aria-label="Acciones del recorrido">
-      {!s.acquiring && <div className="notice"><p>La adquisición está pausada. Confirma para volver a solicitar GPS.</p><button className="secondary full" disabled={s.busy || !!s.storageError} onClick={resume}>Reanudar GPS</button></div>}
+      <button className={`panic full ${riskStatus}`} disabled={emergencyRequested || s.emergency || riskStatus === 'CRITICAL'} onClick={panic}>{s.emergency || riskStatus === 'CRITICAL' ? 'MODO DE EMERGENCIA ACTIVO' : emergencyRequested ? 'EMERGENCIA SOLICITADA' : 'BOTÓN DE PÁNICO'}</button>
+      {emergencyMessage && <p role="status">{emergencyMessage}</p>}
+      <p className="muted">Solicita un teleproceso. No llama al 911 ni notifica automáticamente a autoridades.</p>
+      {!demo && <button className="secondary full" disabled={!routePlan?.path.length || s.busy || !s.acquiring} onClick={activateDemo}>Activar modo demo</button>}
+      {!demo && !s.acquiring && <div className="notice"><p>La adquisición está pausada. Confirma para volver a solicitar GPS.</p><button className="secondary full" disabled={s.busy || !!s.storageError} onClick={resume}>Reanudar GPS</button></div>}
       <button className="danger full" disabled={s.busy} onClick={stop}>Finalizar recorrido</button>
     </section>}
     <p className="journey-reference"><span>ID DEL RECORRIDO</span><code>{s.journey?.journey_id}</code></p>
-    <p className="footnote">No se simulan sensores. Batería y velocidad pueden no estar disponibles en tu navegador. El GPS no está garantizado en segundo plano.</p>
+    <p className="footnote">{demo ? 'SIMULACIÓN: posición, precisión y velocidad sintéticas; riesgo, red, batería y ACK provienen del flujo existente.' : 'GPS real. Batería y velocidad pueden no estar disponibles en tu navegador. El GPS no está garantizado en segundo plano.'}</p>
   </div>
 }
