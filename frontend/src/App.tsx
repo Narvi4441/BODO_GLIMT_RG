@@ -9,11 +9,6 @@ import { CheckInModal } from './components/CheckInModal'
 import { InstallPrompt } from './components/InstallPrompt'
 import type { User } from './types'
 
-function deviceId() {
-  let id = localStorage.getItem('guardian-device-id')
-  if (!id) { id = `device-${crypto.randomUUID()}`; localStorage.setItem('guardian-device-id', id) }
-  return id
-}
 function lightPreference() {
   try { return localStorage.getItem('guardian-theme') === 'light' } catch { return false }
 }
@@ -54,7 +49,8 @@ export default function App() {
     setAccount(true)
   }
   async function start() {
-    try { await guardian.start(user ? String(user.id_usuario) : deviceId()) }
+    if (!user) { setAccount(true); return }
+    try { await guardian.start(String(user.id_usuario)) }
     catch { setError('El almacenamiento local no está disponible. Habilítalo para iniciar.') }
   }
   return <div className={`app-shell ${light ? 'light' : ''}`}>
