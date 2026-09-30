@@ -1,21 +1,50 @@
-"""Compatible command functions without process-local business state."""
-from app.core.cache import read_json, public_snapshot
-from app.services import state_repository as repository
-from app.services.realtime_cache import cache_command
+from datetime import datetime, timezone
+from uuid import uuid4
 
 
-def create_command(journey_id: str, user_id: str, action: str, value=None):
-    return cache_command(repository.create_command(journey_id, user_id, action, value))
+commands: dict[str, dict] = {}
+
+
+def create_command(
+    journey_id: str,
+    user_id: str,
+    action: str,
+    value=None,
+):
+    command_id = str(uuid4())
+
+    command = {
+        "command_id": command_id,
+        "journey_id": journey_id,
+        "user_id": user_id,
+        "action": action,
+        "value": value,
+        "status": "SENT",
+        "created_at": datetime.now(
+            timezone.utc
+        ).isoformat(),
+    }
+
+    commands[command_id] = command
+
+    return command
 
 
 def get_command(command_id: str):
-    if not repository.identifier(command_id):
+    return commands.get(command_id)
+
+
+def update_command_status(
+    command_id: str,
+    status: str,
+    message: str | None = None,
+):
+    command = commands.get(command_id)
+
+    if not command:
         return None
-    cached = read_json(f"guardian:command:{command_id}")
-    if cached:
-        return public_snapshot(cached)
-    return cache_command(repository.get_command(command_id))
 
+    command["status"] = status
+    command["message"] = message
 
-def update_command_status(command_id: str, status: str, message: str | None = None):
-    return cache_command(repository.update_command(command_id, status, message))
+    return command

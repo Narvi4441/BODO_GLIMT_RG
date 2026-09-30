@@ -185,12 +185,12 @@ def get_command(command_id):
 
 
 def pending_commands(journey_id):
-    if not identifier(journey_id):
-        return []
-    with get_engine().connect() as c:
-        rows = c.execute(text("""SELECT * FROM comandos WHERE journey_id=:id
-          AND status IN ('SENT','RECEIVED','EXECUTING') ORDER BY created_at,command_id"""), {"id": journey_id}).mappings()
-        return [command_dict(row) for row in rows]
+    # Compatibility for the existing WebSocket import; MVP commands live in RAM.
+    from app.services.command_state import commands
+
+    return [command.copy() for command in list(commands.values())
+            if command["journey_id"] == journey_id
+            and command["status"] in {"SENT", "RECEIVED", "EXECUTING"}]
 
 
 def update_command(command_id, status, message):
