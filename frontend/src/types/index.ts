@@ -41,3 +41,12 @@ export interface EvidenceSnapshot {
   incident_note?: string;
 }
 export interface SavedEvidence extends EvidenceSnapshot { evidence_id: string; saved_at: number; expires_at: number }
+export interface MonitorContact { id_tutor: number; nombre_completo: string; relacion: string }
+export interface MonitorAccessRequest {
+  journey_id: string; tutor_id: number; destination: Destination | null; planned_path: Coordinate[];
+}
+export interface MonitorSnapshot {
+  journey_id: string; destination: Destination | null; planned_path: Coordinate[];
+  current_position: Coordinate | null; risk_score: number | null; risk_status: RiskStatus | null;
+  route_deviation_m: number | null; network_status: string | null; updated_at: string | null;
+}

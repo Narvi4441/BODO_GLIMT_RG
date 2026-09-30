@@ -9,6 +9,20 @@ from app.core.database import get_engine
 logger = logging.getLogger(__name__)
 
 
+def get_latest_telemetry(journey_id: str) -> dict | None:
+    """Solo lectura, limitada al Journey autorizado por Monitor."""
+    with get_engine().connect() as connection:
+        row = connection.execute(text("""
+            SELECT payload, risk_score, risk_status, received_at
+            FROM telemetria
+            WHERE journey_id = :journey_id
+            ORDER BY (payload->>'timestamp')::timestamptz DESC NULLS LAST,
+                     received_at DESC, id_telemetria DESC
+            LIMIT 1
+        """), {"journey_id": journey_id}).mappings().first()
+    return dict(row) if row else None
+
+
 def save_telemetry(payload: dict) -> None:
     try:
         statement = text("""

@@ -17,6 +17,7 @@ from app.services.state_repository import StateError, pending_commands
 from app.services.journey_state import get_journey
 from app.api.c5_cameras import router as c5_router
 from app.api.routes import router as routes_router
+from app.api.monitor import router as monitor_router
 
 
 app = FastAPI(
@@ -39,6 +40,7 @@ app.include_router(commands_router)
 app.include_router(auth_router)
 app.include_router(c5_router)
 app.include_router(routes_router)
+app.include_router(monitor_router)
 
 
 @app.exception_handler(StateError)

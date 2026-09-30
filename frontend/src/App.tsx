@@ -5,6 +5,7 @@ import { guardian } from './services/telemetry'
 import { HomePage } from './pages/HomePage'
 import { ActiveJourney } from './pages/ActiveJourney'
 import { AuthPage } from './pages/AuthPage'
+import { MonitorPage } from './pages/MonitorPage'
 import { CheckInModal } from './components/CheckInModal'
 import { InstallPrompt } from './components/InstallPrompt'
 import { demoPosition, distanceMeters, pathLength, routeDeviation, scenarioInfrastructure } from './services/demoScenario'
@@ -20,6 +21,11 @@ function lightPreference() {
   try { return localStorage.getItem('guardian-theme') === 'light' } catch { return false }
 }
 export default function App() {
+  const token = new URLSearchParams(window.location.search).get('monitor')
+  return token !== null ? <MonitorPage key={token} token={token}/> : <GuardianApp/>
+}
+
+function GuardianApp() {
   const s = useJourney()
   const [user, setUser] = useState<User | null>(null)
   const [account, setAccount] = useState(false)

@@ -1,13 +1,82 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { JourneyMap } from '../components/JourneyMap'
 import { DemoControls } from '../components/DemoControls'
 import { deviationLabel } from '../services/demoScenario'
+import { api } from '../services/api'
 import type { JourneyState } from '../services/telemetry'
-import type { Coordinate, DemoState, RiskZone, RoutePlan, SafetyCamera, TracePoint } from '../types'
+import type { Coordinate, DemoState, MonitorContact, RiskZone, RoutePlan, SafetyCamera, TracePoint } from '../types'
 
 const number = (value: number | null | undefined, digits = 0) => value == null ? 'No disponible' : value.toFixed(digits)
 const distance = (meters: number) => meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toLocaleString('es-MX', { maximumFractionDigits: 1 })} km`
 const duration = (seconds: number) => `${Math.max(1, Math.ceil(seconds / 60))} min aprox.`
+
+function MonitorSharing({ journeyId, routePlan }: { journeyId: string; routePlan: RoutePlan | null }) {
+  const [contacts, setContacts] = useState<MonitorContact[]>([])
+  const [selected, setSelected] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [attempt, setAttempt] = useState(0)
+  const [sharing, setSharing] = useState(false)
+  const [link, setLink] = useState('')
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+  const version = useRef(0)
+  useEffect(() => {
+    const abort = new AbortController()
+    setLoading(true)
+    setError('')
+    void api.monitorContacts(abort.signal).then(value => {
+      if (!abort.signal.aborted) setContacts(value)
+    }).catch(() => {
+      if (!abort.signal.aborted) setError('No se pudieron consultar tus personas de confianza. Comprueba tu sesión y conexión.')
+    }).finally(() => { if (!abort.signal.aborted) setLoading(false) })
+    return () => abort.abort()
+  }, [attempt])
+  useEffect(() => {
+    version.current++
+    setLink('')
+    setCopied(false)
+    setSharing(false)
+    return () => { version.current++ }
+  }, [journeyId, selected, routePlan])
+  async function share() {
+    if (!selected || sharing) return
+    const request = ++version.current
+    setSharing(true)
+    setLink('')
+    setError('')
+    setCopied(false)
+    try {
+      const result = await api.createMonitorAccess({
+        journey_id: journeyId, tutor_id: Number(selected),
+        destination: routePlan ? { ...routePlan.destination, name: routePlan.destinationName, address: routePlan.destinationAddress } : null,
+        planned_path: routePlan?.path ?? [],
+      })
+      if (version.current !== request) return
+      const url = new URL('/', window.location.origin)
+      url.searchParams.set('monitor', result.token)
+      setLink(url.toString())
+    } catch {
+      if (version.current === request) setError('No se pudo compartir el seguimiento. Revisa tu sesión, conexión y que el recorrido siga activo.')
+    } finally { if (version.current === request) setSharing(false) }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(link); setCopied(true) }
+    catch { setError('No se pudo copiar. Selecciona el enlace para copiarlo manualmente.') }
+  }
+  return <details className="disclosure monitor-sharing">
+    <summary>Persona de confianza <span className="summary-hint">Compartir recorrido activo</span></summary>
+    <div className="disclosure-body">
+      <p className="muted">El enlace permite ver este recorrido mientras siga activo, durante un máximo de 24 horas. Compártelo solo con la persona seleccionada: quien tenga el enlace podrá abrirlo.</p>
+      {loading ? <p role="status">Consultando personas vinculadas…</p> : <>
+        {contacts.length ? <><label htmlFor="monitor-contact">Persona vinculada</label><select id="monitor-contact" value={selected} onChange={event => setSelected(event.target.value)}><option value="">Selecciona una persona</option>{contacts.map(contact => <option key={contact.id_tutor} value={contact.id_tutor}>{contact.nombre_completo} · {contact.relacion}</option>)}</select>
+          <button className="secondary full" disabled={!selected || sharing} onClick={() => void share()}>{sharing ? 'Preparando enlace…' : 'Compartir seguimiento'}</button>
+        </> : <p>No hay personas de confianza vinculadas disponibles.</p>}
+      </>}
+      {error && <p className="notice" role="alert">{error} <button className="text-button" disabled={loading} onClick={() => setAttempt(value => value + 1)}>Volver a consultar personas</button></p>}
+      {link && <div className="monitor-link"><label htmlFor="monitor-link">Enlace temporal</label><input id="monitor-link" value={link} readOnly onFocus={event => event.target.select()}/><button className="secondary full" onClick={() => void copy()}>Copiar enlace</button>{copied && <p className="success" role="status">Enlace copiado.</p>}</div>}
+    </div>
+  </details>
+}
 
 export function ActiveJourney({ state: s, routePlan, stop, resume, currentPosition, actualTrace, deviation, demo, activateDemo, changeDemo, exitDemo, safetyCameras, riskZones, panic, emergencyMessage, emergencyRequested }: {
   state: JourneyState
@@ -76,6 +145,7 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
     {demo && !demo.gpsAvailable && <p className="notice" role="status">Pérdida GPS simulada. Puedes restaurarlo en Modo demo.</p>}
 
     <div className="secondary-sections">
+      {s.journey?.status === 'ACTIVE' && !s.stopPending && <MonitorSharing key={s.journey.journey_id} journeyId={s.journey.journey_id} routePlan={routePlan}/>}
       <details className="disclosure technical-details">
         <summary>Detalles técnicos <span className="summary-hint">GPS, telemetría y ACK</span></summary>
         <div className="disclosure-body">
