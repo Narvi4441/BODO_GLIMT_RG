@@ -1,4 +1,7 @@
 import requests
+import math
+import re
+import polyline
 
 class GoogleMapsIntegration:
     def __init__(self, api_key):
@@ -6,6 +9,48 @@ class GoogleMapsIntegration:
         # Usamos Routes API v2, optimizada para telemetría y tráfico en tiempo real
         self.routes_url = "https://routes.googleapis.com/directions/v2:computeRoutes"
         self.matrix_url = "https://maps.googleapis.com/maps/api/distancematrix/json"
+
+    def plan_route(self, origin, destination):
+        if not self.api_key:
+            raise ValueError("Routes unavailable")
+        response = requests.post(
+            self.routes_url,
+            headers={
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": self.api_key,
+                "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
+            },
+            json={
+                "origin": {"location": {"latLng": {"latitude": origin["lat"], "longitude": origin["lng"]}}},
+                "destination": {"location": {"latLng": {"latitude": destination["lat"], "longitude": destination["lng"]}}},
+                "travelMode": "DRIVE",
+                "routingPreference": "TRAFFIC_AWARE",
+            },
+            timeout=8,
+            allow_redirects=False,
+        )
+        if response.status_code != 200:
+            raise ValueError("Routes unavailable")
+        route = response.json()["routes"][0]
+        distance = route["distanceMeters"]
+        duration = route["duration"]
+        encoded = route["polyline"]["encodedPolyline"]
+        if type(distance) is not int or distance < 0:
+            raise ValueError("Invalid route distance")
+        if not isinstance(duration, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]{1,9})?s", duration):
+            raise ValueError("Invalid route duration")
+        if not isinstance(encoded, str) or not encoded or any(not 63 <= ord(c) <= 126 for c in encoded):
+            raise ValueError("Invalid route polyline")
+        points = polyline.decode(encoded)
+        if len(points) < 2 or any(not (-90 <= lat <= 90 and -180 <= lng <= 180) for lat, lng in points):
+            raise ValueError("Invalid route path")
+        return {
+            "origin": origin,
+            "destination": destination,
+            "distance_m": distance,
+            "duration_s": math.ceil(float(duration[:-1])),
+            "path": [{"lat": lat, "lng": lng} for lat, lng in points],
+        }
 
     def generar_ruta_teorica(self, lat_origen, lon_origen, lat_destino, lon_destino):
         """
