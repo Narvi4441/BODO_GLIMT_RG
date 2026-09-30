@@ -8,6 +8,9 @@ def calculate_risk(data: dict) -> dict:
     accuracy = data.get("accuracy") or 0
     network_status = data.get("network_status", "UNKNOWN")
 
+    if route_deviation > 40:
+        reasons.append("Route deviation over 40 meters")
+
     if route_deviation > 100:
         score += 20
         reasons.append("Route deviation detected")
@@ -33,6 +36,13 @@ def calculate_risk(data: dict) -> dict:
         reasons.append("Network degraded")
 
     score = min(score, 100)
+
+    if route_deviation > 300:
+        score = max(score, 75)
+    elif route_deviation > 100:
+        score = max(score, 50)
+    elif route_deviation > 40:
+        score = max(score, 25)
 
     if score < 25:
         status = "NORMAL"

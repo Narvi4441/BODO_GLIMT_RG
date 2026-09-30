@@ -13,6 +13,8 @@ import { demoPosition, distanceMeters, pathLength, routeDeviation, scenarioInfra
 import { evidence24h } from './services/evidence24h'
 import type { Coordinate, DemoState, Destination, EvidenceSnapshot, RoutePlan, SafetyCamera, SavedEvidence, TracePoint, User } from './types'
 
+const DEMO_WALK_SPEED_MPS = 1.3
+
 function validCoordinate(value: Coordinate | null | undefined): value is Coordinate {
   return !!value && Number.isFinite(value.lat) && Number.isFinite(value.lng)
     && Math.abs(value.lat) <= 90 && Math.abs(value.lng) <= 180
@@ -34,6 +36,10 @@ export default function App() {
 
 function GuardianApp() {
   const s = useJourney()
+  const [networkNotice, setNetworkNotice] = useState('')
+  const previousNetwork = useRef(s.network)
+  const previousPending = useRef(s.pending)
+  const awaitingSync = useRef(false)
   const [user, setUser] = useState<User | null>(null)
   const [account, setAccount] = useState(false)
   const [error, setError] = useState('')
@@ -64,12 +70,32 @@ function GuardianApp() {
   const [emergencyMessage, setEmergencyMessage] = useState('')
   const emergencyRequest = useRef<{ journeyId: string; commandId: string | null } | null>(null)
   const lastDemoSend = useRef(0)
-  const demoPoint = useMemo(() => demo?.gpsAvailable && routePlan ? demoPosition(routePlan.path, demo.distance, demo.offset) : null, [demo, routePlan])
+  const [demoOffset, setDemoOffset] = useState(0)
+  const demoOffsetRef = useRef(0)
+  const lastDemoTick = useRef(0)
+  const demoPoint = useMemo(() => demo?.gpsAvailable && routePlan ? demoPosition(routePlan.path, demo.distance, demoOffset) : null, [demo, routePlan, demoOffset])
   const currentPosition = demo ? demoPoint : s.point ? { lat: s.point.latitude, lng: s.point.longitude } : null
   const deviation = currentPosition && routePlan ? routeDeviation(currentPosition, routePlan.path) : null
   const infrastructure = useMemo(() => demo && routePlan ? scenarioInfrastructure(routePlan.path) : { cameras: [], zones: [] }, [!!demo, routePlan])
   const nearbyCameras = useMemo(() => currentPosition ? datasetCameras.map(camera => ({ ...camera, distance_m: distanceMeters(currentPosition, camera) })).filter(camera => Number.isFinite(camera.distance_m) && camera.distance_m <= 500) : [], [currentPosition?.lat, currentPosition?.lng])
 
+  useEffect(() => {
+    const previous = previousNetwork.current
+    previousNetwork.current = s.network
+    if (previous === 'ONLINE' && s.network === 'OFFLINE') setNetworkNotice('Sin conexión. Guardando datos localmente.')
+    else if (previous === 'OFFLINE' && s.network !== 'OFFLINE') {
+      setNetworkNotice('Conexión restaurada. Sincronizando datos.')
+      awaitingSync.current = s.pending > 0
+    }
+  }, [s.network, s.pending])
+  useEffect(() => {
+    const previous = previousPending.current
+    previousPending.current = s.pending
+    if (awaitingSync.current && previous > 0 && s.pending === 0) {
+      awaitingSync.current = false
+      setNetworkNotice('Sincronización terminada.')
+    }
+  }, [s.pending])
   useEffect(() => { guardian.setRoutePath(routePlan?.path ?? []) }, [routePlan])
   const refreshEvidence = useCallback(async () => {
     try { setSavedRoutes(await evidence24h.list()); setEvidenceError('') }
@@ -139,6 +165,9 @@ function GuardianApp() {
     const value: DemoState = { distance: 0, moving: false, gpsAvailable: true, offset: 0 }
     demoRef.current = value
     setDemo(value)
+    demoOffsetRef.current = 0
+    setDemoOffset(0)
+    lastDemoTick.current = Date.now()
     lastDemoSend.current = 0
   }
   function changeDemo(patch: Partial<DemoState>) {
@@ -150,6 +179,9 @@ function GuardianApp() {
   function exitDemo(resume = true) {
     demoRef.current = null
     setDemo(null)
+    demoOffsetRef.current = 0
+    setDemoOffset(0)
+    lastDemoTick.current = 0
     guardian.setDemoMode(false)
     if (resume) void guardian.resume()
   }
@@ -157,19 +189,33 @@ function GuardianApp() {
     if (!demo || !routePlan || !s.journey || s.stopPending) return
     const path = routePlan.path, total = pathLength(path)
     const timer = setInterval(() => {
+      const now = Date.now()
+      const elapsedSeconds = lastDemoTick.current ? Math.min(1.5, (now - lastDemoTick.current) / 1000) : 0
+      lastDemoTick.current = now
       const value = demoRef.current
       const state = guardian.snapshot()
-      if (!value || !value.gpsAvailable || state.stopPending || !state.journey) return
-      // Un solo reloj mueve el sensor; la frecuencia de envío sigue la orden del backend.
-      const advance = value.moving ? Math.min(20, Math.max(1, total / 120)) : 0
+      if (!value || !value.gpsAvailable || state.stopPending || !state.journey || elapsedSeconds <= 0) return
+      let remainingSeconds = elapsedSeconds
+      let nextOffset = demoOffsetRef.current
+      const offsetDelta = value.offset - nextOffset
+      let offsetStep = 0
+      if (Math.abs(offsetDelta) > 0.01) {
+        offsetStep = Math.sign(offsetDelta) * Math.min(Math.abs(offsetDelta), DEMO_WALK_SPEED_MPS * remainingSeconds)
+        nextOffset += offsetStep
+        remainingSeconds -= Math.abs(offsetStep) / DEMO_WALK_SPEED_MPS
+      }
+      const advance = value.moving ? DEMO_WALK_SPEED_MPS * remainingSeconds : 0
       const next = { ...value, distance: Math.min(total, value.distance + advance) }
       if (next.distance >= total) next.moving = false
+      demoOffsetRef.current = nextOffset
+      setDemoOffset(nextOffset)
       demoRef.current = next
       setDemo(next)
-      const position = demoPosition(path, next.distance, next.offset)
+      const position = demoPosition(path, next.distance, nextOffset)
       if (position && Date.now() - lastDemoSend.current >= state.interval * 1000) {
         lastDemoSend.current = Date.now()
-        void guardian.submitDemoPosition(position, next.moving ? advance : 0).catch(() => setError('No se pudo adquirir el punto demo.'))
+        const speed = Math.abs(offsetStep) > 0.01 || advance > 0 ? DEMO_WALK_SPEED_MPS : 0
+        void guardian.submitDemoPosition(position, speed).catch(() => setError('No se pudo adquirir el punto demo.'))
       }
     }, 1000)
     return () => clearInterval(timer)
@@ -316,9 +362,10 @@ function GuardianApp() {
       {(s.error || error) && <p className="notice" role="alert">{s.error || error}</p>}
       {s.gpsError && <p className="notice" role="alert">{s.gpsError}</p>}
       {s.storageError && <p className="notice" role="alert">{s.storageError}</p>}
+      {networkNotice && <p className="notice" role="status">{networkNotice}</p>}
       {authError && <p className="notice" role="alert">{authError} <button className="text-button" disabled={restoring} onClick={() => setRestoreAttempt(value => value + 1)}>Reintentar sesión</button></p>}
-      {s.pending > 0 && <section className="buffer panel"><div><strong>{s.pending} pendientes</strong><p>Puntos GPS y confirmaciones guardados localmente.</p></div><button className="text-button" onClick={() => void guardian.sync()}>Reintentar</button><button className="text-button" onClick={() => void guardian.downloadPending().catch(() => setError('No se pudo exportar el buffer.'))}>Descargar</button></section>}
-      {s.recovered > 0 && <p className="success" role="status">✓ {s.recovered} puntos recuperados y confirmados por el backend.</p>}
+      {s.pending > 0 && <details className="buffer panel"><summary>Datos pendientes de sincronización</summary><div><strong>{s.pending} pendientes</strong><p>Puntos GPS y confirmaciones guardados localmente.</p><button className="text-button" onClick={() => void guardian.sync()}>Reintentar</button><button className="text-button" onClick={() => void guardian.downloadPending().catch(() => setError('No se pudo exportar el buffer.'))}>Descargar</button></div></details>}
+
       {s.journey ? <ActiveJourney state={s} routePlan={routePlan} actualTrace={actualTrace} currentPosition={currentPosition} deviation={deviation} demo={demo} activateDemo={activateDemo} changeDemo={changeDemo} exitDemo={() => exitDemo()} safetyCameras={nearbyCameras} riskZones={infrastructure.zones} panic={() => void requestEmergency()} emergencyMessage={emergencyMessage} emergencyRequested={emergencyRequest.current?.journeyId === s.journey.journey_id} stop={() => { if (s.busy) return; if (demoRef.current) exitDemo(false); void guardian.stop() }} resume={() => void guardian.resume()}/> : restoring ? <p className="notice" role="status">Restaurando sesión…</p> : account ? (user ? <section className="panel"><h1>{user.nombre_completo}</h1><p>{user.email}</p><button className="secondary" onClick={logout}>Cerrar sesión</button><button className="text-button" onClick={() => setAccount(false)}>Volver</button></section> : <AuthPage back={() => setAccount(false)} loggedIn={value => { setUser(value); setAuthError(''); setAccount(false) }}/>) : <HomePage state={s} user={user} origin={origin} destination={destination} routePlan={routePlan} planning={planning} planningError={planningError} canPlan={canPlan} canStart={canStart} onOriginChange={changeOrigin} onDestinationChange={changeDestination} onMapReady={setMapsReady} onPlacesReady={setPlacesReady} calculateRoute={() => void calculateRoute()} start={() => void start()} account={() => setAccount(true)} savedRoutes={savedRoutes} deleteEvidence={id => void deleteEvidence(id)}/>}
       {evidenceError && <p className="notice" role="alert">{evidenceError}</p>}
       {hasSnapshot && <section className="panel evidence-save"><h2>Guardar recorrido 24 h</h2><p>Evidencia temporal local. Incluye la traza disponible en esta sesión y distingue puntos reales y DEMO.</p><label htmlFor="incident-note">Nota opcional</label><textarea id="incident-note" maxLength={1000} value={incidentNote} onChange={event => setIncidentNote(event.target.value)}/><button className="secondary full" disabled={savingEvidence || savedJourney.current === snapshot.current?.journey_id} onClick={() => void saveEvidence()}>{savingEvidence ? 'Guardando…' : 'Guardar recorrido 24 h'}</button><p role="status">{evidenceMessage}</p></section>}

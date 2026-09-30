@@ -131,9 +131,9 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
     </section>
 
     {!s.stopPending && <section className="sos-section" aria-label="Solicitar ayuda">
-      <button className={'panic full ' + riskStatus} disabled={emergencyRequested || s.emergency || riskStatus === 'CRITICAL'} onClick={panic}>{s.emergency || riskStatus === 'CRITICAL' ? 'MODO DE EMERGENCIA ACTIVO' : emergencyRequested ? 'EMERGENCIA SOLICITADA' : 'SOS / NECESITO AYUDA'}</button>
+      <button className={'panic full ' + riskStatus} disabled={emergencyRequested || s.emergency || riskStatus === 'CRITICAL'} onClick={() => { panic(); window.location.href = 'tel:911' }}>{s.emergency || riskStatus === 'CRITICAL' ? 'MODO DE EMERGENCIA ACTIVO' : emergencyRequested ? 'EMERGENCIA SOLICITADA' : 'SOS / NECESITO AYUDA'}</button>
       {emergencyMessage && <p role="status">{emergencyMessage}</p>}
-      <p className="muted">No llama al 911 ni notifica automáticamente a autoridades.</p>
+      <p><a href="tel:911">Emergencias: 911</a></p><p className="muted">El marcador abre 911; confirma la llamada en tu dispositivo. No se notifica automáticamente a las autoridades.</p>
     </section>}
 
     <div className="basic-status" aria-label="Estado de seguimiento">
