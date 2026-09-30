@@ -1,11 +1,9 @@
 import math
-import redis
+from app.realtime.c5_service import GeoC5Service
 
 class MotorTelemetria:
     def __init__(self):
-        # Apuntando al db=5 donde guardamos las cámaras del C5
-        self.redis = redis.Redis(host='localhost', port=6379, db=5, decode_responses=True)
-        self.REDIS_GEO_KEY = "acompanamiento:cdmx:c5"
+        self.c5 = GeoC5Service()
         self.TOLERANCIA_DESVIACION = 50.0 
 
     def haversine(self, lat1, lon1, lat2, lon2):
@@ -38,13 +36,10 @@ class MotorTelemetria:
         return {"estado": "SEGURO", "distancia_desvio_m": round(distancia_minima, 2)}
 
     def disparar_alerta(self, lat_actual, lon_actual, desviacion):
-        camaras = self.redis.georadius(
-            self.REDIS_GEO_KEY, lon_actual, lat_actual, 1000, unit='m', withdist=True, sort='ASC'
-        )
-        
-        if camaras:
-            id_poste, dist = camaras[0][0], camaras[0][1]
-            metadata_poste = self.redis.hgetall(f"meta:camara:{id_poste}")
+        infrastructure = self.c5.localizar_infraestructura_cercana(lat_actual, lon_actual)
+        if infrastructure["encontrado"]:
+            dist = infrastructure["distancia_metros"]
+            metadata_poste = infrastructure["metadata"]
             return {
                 "estado": "PELIGRO",
                 "motivo": f"Desvío de {round(desviacion, 2)}m",

@@ -2,13 +2,16 @@ from sqlalchemy import text, create_engine
 from app.core.config import Config
 import redis
 import requests
+from app.core.cache import get_redis
+from app.realtime.c5_service import get_c5_redis, GEO_KEY
+from app.core.database import get_engine
 
 def probar_conexiones():
     print("--- INICIANDO DIAGNÓSTICO DEL SISTEMA GUARDIÁN ---\n")
 
     # 1. Prueba PostgreSQL (Conexión directa)
     try:
-        engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+        engine = get_engine()
         with engine.connect() as conexion:
             conexion.execute(text("SELECT 1"))
         print("✅ PostgreSQL: Conexión exitosa a la base de datos.")
@@ -17,13 +20,18 @@ def probar_conexiones():
 
     # 2. Prueba Redis
     try:
-        r = redis.Redis(host=Config.REDIS_HOST, port=Config.REDIS_PORT, db=0)
+        r = get_redis()
         if r.ping():
-            print(f"✅ Redis: Conexión exitosa (Puerto {Config.REDIS_PORT}).")
-            total_camaras = r.zcard("acompanamiento:cdmx:c5")
-            print(f"   -> Nodos C5 indexados en memoria: {total_camaras}")
+            print("✅ Redis: Conexión exitosa mediante REDIS_URL.")
     except Exception as e:
         print(f"❌ Redis Error: El contenedor no está respondiendo.\nDetalle: {e}")
+
+    # C5 uses its original Redis independently of journey/command/risk state.
+    try:
+        total_c5 = get_c5_redis().zcard(GEO_KEY)
+        print(f"C5 Redis: {total_c5} elementos en {GEO_KEY}.")
+    except redis.RedisError as error:
+        print(f"C5 Redis no disponible: {type(error).__name__}")
 
     # 3. Prueba Google Routes API
     try:

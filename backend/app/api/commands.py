@@ -1,3 +1,4 @@
+from starlette.concurrency import run_in_threadpool
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.command import (
@@ -24,9 +25,7 @@ router = APIRouter(
 async def send_command(
     request: CommandRequest,
 ):
-    journey = get_journey(
-        request.journey_id
-    )
+    journey = await run_in_threadpool(get_journey, request.journey_id)
 
     if not journey:
         raise HTTPException(
@@ -46,7 +45,7 @@ async def send_command(
             detail="User does not own this journey",
         )
 
-    command = create_command(
+    command = await run_in_threadpool(create_command,
         journey_id=request.journey_id,
         user_id=request.user_id,
         action=request.action,
@@ -82,7 +81,7 @@ async def command_ack(
             detail="Invalid ACK status",
         )
 
-    command = update_command_status(
+    command = await run_in_threadpool(update_command_status,
         command_id=command_id,
         status=ack.status,
         message=ack.message,

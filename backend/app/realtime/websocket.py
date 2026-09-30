@@ -1,4 +1,5 @@
 from fastapi import WebSocket
+import logging
 
 
 class ConnectionManager:
@@ -43,10 +44,11 @@ class ConnectionManager:
 
         dead_connections = []
 
-        for websocket in connections:
+        for websocket in list(connections):
             try:
                 await websocket.send_json(message)
-            except Exception:
+            except Exception as exc:
+                logging.getLogger(__name__).warning("WebSocket delivery failed: %s", type(exc).__name__)
                 dead_connections.append(websocket)
 
         for websocket in dead_connections:
