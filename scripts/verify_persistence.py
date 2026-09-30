@@ -24,7 +24,6 @@ from app.core.database import get_engine
 from app.core.cache import get_redis
 from app.schemas.telemetry import TelemetryIn
 from app.services.risk import calculate_risk
-from app.services.c5_repository import rebuild_cache, nearest
 
 
 def main():
@@ -32,7 +31,6 @@ def main():
     parser.add_argument("--port", type=int, default=58000)
     parser.add_argument("--telemetry-file", type=Path)
     parser.add_argument("--user-id", help="Existing account ID or actual device identity")
-    parser.add_argument("--clear-c5-cache", action="store_true", help="Delete guardian:c5:* only on the dedicated test Redis")
     args = parser.parse_args()
     if not (make_url(Config.SQLALCHEMY_DATABASE_URI).database or "").endswith("_test"):
         parser.error("DATABASE_URL must point to an isolated database ending in _test")
@@ -174,28 +172,8 @@ def main():
             source = (ROOT / f"backend/app/services/{module}.py").read_text(encoding="utf-8")
             assert "= {}" not in source
         passed("No process-local business state dictionaries")
-        with engine.connect() as c:
-            infrastructure = c.execute(text("SELECT * FROM infraestructura_c5 ORDER BY id LIMIT 1")).mappings().first()
-            total = c.execute(text("SELECT count(*) FROM infraestructura_c5")).scalar_one()
-        if infrastructure:
-            assert client_redis.zcard("guardian:c5:geo") == total
-            response = http.get("/api/c5/nearest", params={"latitude": infrastructure["latitude"], "longitude": infrastructure["longitude"]})
-            response.raise_for_status()
-            result = response.json()
-            assert result["encontrado"] and result["distancia_metros"] < 1
-            assert result["metadata"]["source"] == infrastructure["source"]
-            passed(f"Official C5 PostgreSQL/Redis: {total} records; nearest at source coordinate within 1 m")
-            if args.clear_c5_cache:
-                keys = list(client_redis.scan_iter(match="guardian:c5:*"))
-                if keys:
-                    client_redis.delete(*keys)
-                assert client_redis.zcard("guardian:c5:geo") == 0
-                assert rebuild_cache() == total
-                assert client_redis.zcard("guardian:c5:geo") == total
-                assert nearest(infrastructure["latitude"], infrastructure["longitude"])["encontrado"]
-                passed("Only test C5 cache cleared; all official records rebuilt from PostgreSQL")
-        else:
-            report.append({"check": "C5", "result": "NOT TESTED: no official file imported"})
+        # C5 is checked separately against its existing Redis, read-only.
+        # Never import, clear or rebuild the C5 catalogue from persistence tests.
     finally:
         if process and process.poll() is None:
             process.terminate()

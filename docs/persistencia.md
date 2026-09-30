@@ -31,10 +31,9 @@ Incompatibilidades resueltas explícitamente:
   e insertaba una ruta ficticia. Ahora ejecuta las migraciones. Si esa tabla
   incompatible existe, 002 aborta y revierte todo: requiere inspección concreta
   antes de decidir cómo mapear sus datos.
-- Los scripts C5 anteriores consultaban un proxy de terceros y usaban distintas
-  combinaciones de puerto/DB. Ahora todos los consumidores usan `REDIS_URL` y
-  el catálogo persistente. Las claves antiguas de DB 5 no se borran ni se importan
-  automáticamente como si fueran una fuente oficial.
+- **Corrección C5 posterior:** se restauró el índice Redis original en DB 5,
+  `acompanamiento:cdmx:c5` y `meta:camara:{id}`. C5 usa `C5_REDIS_URL`, no depende de
+  PostgreSQL y no utiliza el archivo WiFi. Ver [C5 actual](c5.md).
 
 ## Configurar y migrar
 
@@ -64,8 +63,8 @@ Migraciones:
 - 001 existente: se omite su SQL cuando `usuarios.password_hash` ya existe.
 - 002: columnas de viajes e índices; nuevas tablas `telemetria`, `comandos`,
   `eventos_viaje`. No reemplaza `usuarios`, `viajes` ni `alertas`.
-- 003: `infraestructura_c5`. Si PostGIS ya está instalado en esa base, agrega
-  `location GEOGRAPHY(Point,4326)` e índice GIST. El importador mantiene location.
+- 003: migración C5 archivada; permanece intacta como referencia y el ejecutor
+  la excluye. Si ya se aplicó, no borra la tabla ni su registro de migración.
 - 004: precisión de las columnas de longitud existentes.
 - El ejecutor crea explícitamente `guardian_migrations(name, sha256, applied_at)`.
   Un bloqueo PostgreSQL serializa migraciones; el SQL y su recibo se confirman en
@@ -112,59 +111,33 @@ del flujo existente.
 | `guardian:journey:{uuid}:risk` | JSON: status, score, reasons, updated_at |
 | `guardian:command:{uuid}` | JSON del comando y último ACK |
 | `guardian:journey:{uuid}:pending_commands` | SET de command_id no terminales |
-| `guardian:c5:geo` | GEOSET de infraestructura |
-| `guardian:c5:meta:{id}` | HASH, campo `data` con JSON del registro y metadata original |
-| `guardian:c5:version` | Conteo/fecha de PostgreSQL del índice construido |
-| `guardian:c5:geo:build:{uuid}` | Clave temporal durante reconstrucción, TTL 600 s |
+| `acompanamiento:cdmx:c5` | GEOSET C5 existente, en su Redis DB 5 independiente |
+| `meta:camara:{id}` | HASH C5 original, sin cambios ni escrituras |
 
 Las copias realtime tienen TTL de 30 s y versión para evitar sobrescrituras por
 workers retrasados. Una copia anterior puede verse hasta vencer el TTL si falló
 su actualización; nunca autoriza escrituras: estas se verifican en PostgreSQL.
 La lectura tras vencimiento reconstruye estado, riesgo, ubicación y pendientes.
-C5 no depende de TTL: coteja versión/conteo contra PostgreSQL y reconstruye el GEOSET
-cuando falta. La publicación del índice completo es atómica. Redis caído usa una
-consulta geográfica parametrizada en PostgreSQL.
+C5 consulta directamente su GEOSET y metadata originales; no reconstruye,
+no escribe y no tiene fallback PostgreSQL. Si ese Redis falla, devuelve HTTP 503.
 
 Se mantiene un proceso/replica para WebSocket, como en el despliegue actual.
 Solo los objetos de conexiones abiertas permanecen en RAM; no son datos de
 negocio persistibles. El fan-out WebSocket entre réplicas requiere Pub/Sub y no
 se añadió. No configurar varios workers esperando entrega de mensajes entre ellos.
 
-## C5 real
+## C5 actual: Redis original
 
-El archivo verificado es [WiFi gratuito en Postes del C5, julio 2025](https://datos.cdmx.gob.mx/dataset/d5410ea3-dbdd-437d-9def-91f30ec9a390/resource/9bb1debb-15e9-4d48-baec-07c9edd87a23/download/9bb1debb-15e9-4d48-baec-07c9edd87a23.xlsx).
-Contiene 13,714 filas y columnas `id`, `programa`, `latitud`, `longitud`, `alcaldia`.
-SHA-256 del archivo descargado para esta verificación:
-`733e6219a9761a1dabed9208639c483a8938e6ab51154a56be136019383cfa8a`.
-Es infraestructura con WiFi; no demuestra que cada punto sea una cámara o un refugio
-atendido. Dirección/esquina/colonia/poste/botón/altavoz quedan NULL cuando faltan;
-`metadata` conserva exactamente las propiedades originales.
-
-```powershell
-# Desde la raíz; usa el mismo --source al repetir una importación.
-Invoke-WebRequest -Uri 'https://datos.cdmx.gob.mx/dataset/d5410ea3-dbdd-437d-9def-91f30ec9a390/resource/9bb1debb-15e9-4d48-baec-07c9edd87a23/download/9bb1debb-15e9-4d48-baec-07c9edd87a23.xlsx' -OutFile "$env:TEMP\guardian-c5.xlsx"
-.\backend\.venv\Scripts\python.exe scripts\import_c5.py "$env:TEMP\guardian-c5.xlsx" --source 'https://datos.cdmx.gob.mx/dataset/wifi-gratuito-en-postes-del-c5'
-# Reconstrucción sin descargar de nuevo:
-.\backend\.venv\Scripts\python.exe scripts\import_c5.py --rebuild-redis
-```
-
-También admite CSV y GeoJSON Point; `--encoding cp1252` permite CSV de otra
-codificación. XLSX utiliza openpyxl, la única nueva dependencia. Los IDs se toman
-de la fuente, nunca de un contador inventado. Un ID atribuido a otra fuente aborta
-la transacción; no reemplaza su procedencia silenciosamente. No elimina registros
-ausentes de un archivo posterior. Importaciones/reconstrucciones se serializan.
-Si falla Redis después del commit, el script termina con código 2 y permite
-reconstruir luego; PostgreSQL conserva el catálogo completo.
-
-Endpoint nuevo: `GET /api/c5/nearest?latitude=...&longitude=...&radius_m=1000`.
-Devuelve `encontrado`, `id_poste`, `distancia_metros` y `metadata`; las coordenadas
-de la consulta deben provenir del teléfono o de un registro real. Redis calcula
-distancia sobre esfera; la consulta PostgreSQL de fallback también. No son rutas
-peatonales ni distancias de viaje.
+La persistencia PostgreSQL de C5 y el importador WiFi se conservaron como referencia
+archivada; no forman parte del runtime ni del ejecutor de migraciones.
+Consulta [configuración, contrato y comprobaciones actuales](c5.md).
 
 ## Verificación realizada y límites
 
-Ejecutado el 29/09/2026 en servicios reales aislados:
+Registro histórico del bloque de persistencia, ejecutado el 29/09/2026 en servicios
+reales aislados. Las pruebas WiFi/C5 que aparecen abajo corresponden a la versión
+anterior a la corrección y no describen el flujo C5 actual. El verificador actual
+conserva las pruebas de journeys/comandos y ya no importa, reconstruye ni borra C5:
 
 - Migración del esquema documentado, y segunda ejecución sin volver a aplicar.
 - Inicio por HTTP y existencia en PostgreSQL/Redis.
@@ -202,9 +175,9 @@ terminada en `_test` y un Redis exclusivo para pruebas:
 .\backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
 $env:DATABASE_URL='postgresql+psycopg2://USUARIO:CONTRASENA@HOST:PUERTO/guardian_core_test'
 $env:REDIS_URL='redis://HOST_REDIS_PRUEBA:PUERTO/0'
-.\backend\.venv\Scripts\python.exe scripts\verify_persistence.py --clear-c5-cache
+.\backend\.venv\Scripts\python.exe scripts\verify_persistence.py
 # Para cubrir telemetría, exportar una captura real como un array JSON de paquetes:
-.\backend\.venv\Scripts\python.exe scripts\verify_persistence.py --telemetry-file 'C:\ruta\captura-real.json' --clear-c5-cache
+.\backend\.venv\Scripts\python.exe scripts\verify_persistence.py --telemetry-file 'C:\ruta\captura-real.json'
 ```
 
 El verificador solo cambia journey_id/user_id de la captura para asociarla al

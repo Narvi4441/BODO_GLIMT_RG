@@ -43,17 +43,20 @@ en tel?fono usa HTTPS. El backend actual no sirve la PWA en `/ui/`.
 
 ## Persistencia y C5
 
-[Diagn?stico, migraciones, Redis, importaci?n oficial y resultados reales](docs/persistencia.md).
+[Persistencia PostgreSQL/Redis de journeys, telemetría, comandos y ACK](docs/persistencia.md).
+
+[C5 original: DB 5, IDs CAM-* y metadata Redis existente](docs/c5.md).
+C5 usa `C5_REDIS_URL=redis://localhost:6379/5`, separado de `REDIS_URL`.
+El endpoint `GET /api/c5/nearest` consulta el GEOSET `acompanamiento:cdmx:c5`
+y los hashes `meta:camara:{id}` sin acceder a PostgreSQL.
 
 ```powershell
-# Desde la ra?z, con un archivo oficial real y su URL de procedencia:
-.\backend\.venv\Scripts\python.exe scripts\import_c5.py 'C:\ruta\c5-oficial.xlsx' --source 'URL_OFICIAL_DEL_DATASET'
-# Recuperar el ?ndice desde PostgreSQL:
-.\backend\.venv\Scripts\python.exe scripts\import_c5.py --rebuild-redis
+# Desde la raíz: consulta de solo lectura, sin reimportar ni borrar datos.
+.\backend\.venv\Scripts\python.exe scripts\c5_redis.py --latitude 19.483051 --longitude -99.073564 --limit 5
 ```
 
-El endpoint de infraestructura cercana es `GET /api/c5/nearest`. No se infieren
-c?maras, botones, altavoces ni refugios cuando la fuente no los identifica.
+El importador WiFi y la persistencia PostgreSQL de C5 quedaron archivados.
+La migración C5 003 no se ejecuta; las de persistencia de journeys siguen activas.
 
 [Registro de usuario/tutor y verificaci?n de contrase?as](docs/registro.md).
 La verificaci?n de credenciales existente no emite sesiones/tokens para proteger

@@ -14,7 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Inspect schema and pending migrations only")
     args = parser.parse_args()
-    paths = sorted((ROOT / "backend/migrations").glob("*.sql"))
+    # C5 vuelve al Redis original. Conservar 003 como referencia, sin aplicarla
+    # ni alterar su checksum si fue ejecutada antes. Las demás migraciones siguen igual.
+    paths = sorted(path for path in (ROOT / "backend/migrations").glob("*.sql")
+                   if path.name != "003_infraestructura_c5.sql")
     with get_engine().connect() as c:
         for table in ("usuarios", "viajes", "alertas"):
             columns = c.execute(text("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=:name ORDER BY ordinal_position"), {"name": table}).scalars().all()

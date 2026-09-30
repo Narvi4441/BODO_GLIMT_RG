@@ -1,4 +1,7 @@
-"""Import an actual official CSV/XLSX/GeoJSON, or rebuild Redis from PostgreSQL."""
+"""ARCHIVED: former PostgreSQL/WiFi C5 import, retained only as reference.
+
+Not part of the active C5 flow. Its CLI is disabled to prevent accidental imports.
+"""
 import argparse
 import csv
 import json
@@ -129,4 +132,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("Importador C5 archivado: no ejecutar. C5 usa el índice Redis existente; consulta docs/c5.md.")

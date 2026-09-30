@@ -1,4 +1,8 @@
-"""Official infrastructure records; PostgreSQL is authoritative, Redis is an index."""
+"""ARCHIVED C5 experiment; not imported by the API/runtime.
+
+Retained as reference only. Active C5 lives in app.realtime.c5_service and reads
+acompanamiento:cdmx:c5 / meta:camara:* directly. Do not run this rebuild/import flow.
+"""
 import json
 import logging
 from uuid import uuid4

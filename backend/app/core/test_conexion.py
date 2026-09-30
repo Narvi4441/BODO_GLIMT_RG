@@ -3,6 +3,7 @@ from app.core.config import Config
 import redis
 import requests
 from app.core.cache import get_redis
+from app.realtime.c5_service import get_c5_redis, GEO_KEY
 from app.core.database import get_engine
 
 def probar_conexiones():
@@ -22,10 +23,15 @@ def probar_conexiones():
         r = get_redis()
         if r.ping():
             print("✅ Redis: Conexión exitosa mediante REDIS_URL.")
-            total_camaras = r.zcard("guardian:c5:geo")
-            print(f"   -> Nodos C5 indexados en memoria: {total_camaras}")
     except Exception as e:
         print(f"❌ Redis Error: El contenedor no está respondiendo.\nDetalle: {e}")
+
+    # C5 uses its original Redis independently of journey/command/risk state.
+    try:
+        total_c5 = get_c5_redis().zcard(GEO_KEY)
+        print(f"C5 Redis: {total_c5} elementos en {GEO_KEY}.")
+    except redis.RedisError as error:
+        print(f"C5 Redis no disponible: {type(error).__name__}")
 
     # 3. Prueba Google Routes API
     try:
