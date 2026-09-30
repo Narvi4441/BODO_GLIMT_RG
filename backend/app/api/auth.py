@@ -1,9 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from app.schemas.auth import LoginRequest, RegisterRequest
 from app.services import auth as service
+from app.core.security import token_user_id
 
 
 class AuthRoute(APIRoute):
@@ -39,6 +41,7 @@ class AuthRoute(APIRoute):
 
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"], route_class=AuthRoute)
+bearer = HTTPBearer(auto_error=False)
 
 
 @router.post("/register", status_code=201)
@@ -49,3 +52,11 @@ def register(request: RegisterRequest):
 @router.post("/login")
 def login(request: LoginRequest):
     return service.login(request)
+
+
+@router.get("/me")
+def me(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    if credentials is None:
+        raise HTTPException(401, "Inicia sesión para continuar.",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return service.current_user(token_user_id(credentials.credentials))

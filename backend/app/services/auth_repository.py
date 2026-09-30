@@ -47,3 +47,10 @@ def find_tutors(connection, user_id):
         FROM tutores t JOIN usuarios_tutores ut ON ut.id_tutor = t.id_tutor
         WHERE ut.id_usuario = :user_id ORDER BY t.id_tutor
     """), {"user_id": user_id}).mappings().all()
+
+
+def find_user_by_id(connection, user_id):
+    return connection.execute(text("""
+        SELECT id_usuario, nombre_completo, email
+        FROM usuarios WHERE id_usuario = :user_id
+    """), {"user_id": user_id}).mappings().first()

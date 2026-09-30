@@ -7,6 +7,7 @@ SQLAlchemy==2.0.54
 psycopg2-binary==2.9.13
 argon2-cffi==25.1.0
 email-validator==2.3.0
+PyJWT==2.15.1
 # Integraciones existentes (C5, rutas y diagnóstico).
 redis>=5,<8
 requests>=2.32,<3

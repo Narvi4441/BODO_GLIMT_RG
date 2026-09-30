@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { api, ApiError } from '../services/api'
+import { api, ApiError, ACCESS_TOKEN_KEY } from '../services/api'
 import type { Registration, User } from '../types'
 
 const fields = [
@@ -48,7 +48,11 @@ export function AuthPage({ back, loggedIn }: { back: () => void; loggedIn: (user
         setMessage('Usuario registrado correctamente. Ya puedes iniciar sesión.')
       } else {
         const response = await api.login(email.trim(), password)
-        if (response.success) loggedIn(response.usuario)
+        if (response.success && response.access_token) {
+          try { localStorage.setItem(ACCESS_TOKEN_KEY, response.access_token) }
+          catch { throw new Error('No se pudo guardar la sesión. Habilita el almacenamiento del navegador.') }
+          loggedIn(response.user)
+        }
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo completar la operación.')

@@ -1,4 +1,10 @@
-import type { AckStatus, Journey, Registration, Telemetry, TelemetryResult, Tutor, User } from '../types'
+import type { AckStatus, Journey, LoginResult, Registration, Telemetry, TelemetryResult, User } from '../types'
+
+export const ACCESS_TOKEN_KEY = 'guardian_access_token'
+
+export function accessToken(): string | null {
+  try { return localStorage.getItem(ACCESS_TOKEN_KEY) } catch { return null }
+}
 
 export class ApiError extends Error {
   constructor(message: string, public status = 0, public fields: Record<string, string> = {}) { super(message) }
@@ -9,13 +15,17 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), 12000)
   try {
+    const headers: Record<string, string> = body === undefined ? {} : { 'Content-Type': 'application/json' }
+    const token = accessToken()
+    if (token) headers.Authorization = `Bearer ${token}`
     const response = await fetch(base + path, {
       method: body === undefined ? 'GET' : 'POST',
-      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: abort.signal, cache: 'no-store', credentials: 'omit',
     })
     const data = await response.json().catch(() => null)
+    if (response.status >= 500) throw new ApiError('El servicio no está disponible. Intenta de nuevo más tarde.', response.status)
     if (!response.ok) throw new ApiError(data?.message || (typeof data?.detail === 'string' ? data.detail : 'El backend rechazó la solicitud.'), response.status, data?.errors)
     if (!data) throw new ApiError('El backend no devolvió JSON válido.', response.status)
     return data as T
@@ -32,5 +42,6 @@ export const api = {
   telemetry: (payload: Telemetry) => request<TelemetryResult>('/api/telemetry', payload),
   ack: (id: string, status: AckStatus, message: string) => request<unknown>(`/api/commands/${encodeURIComponent(id)}/ack`, { status, message }),
   register: (payload: Registration) => request<{success: boolean; message: string}>('/api/auth/register', payload),
-  login: (email: string, password: string) => request<{success: boolean; usuario: User; tutores: Tutor[]}>('/api/auth/login', { email, password }),
+  login: (email: string, password: string) => request<LoginResult>('/api/auth/login', { email, password }),
+  me: () => request<User>('/api/auth/me'),
 }

@@ -2,6 +2,7 @@ import logging
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from app.core.database import DatabaseNotConfigured, get_engine
 from app.core.passwords import hash_password, verify_password
+from app.core.security import create_access_token
 from app.services import auth_repository as repository
 
 logger = logging.getLogger(__name__)
@@ -61,9 +62,19 @@ def login(request):
             user = rows[0] if len(rows) == 1 else None
             if not verify_password(request.password.get_secret_value(), user["password_hash"] if user else None):
                 raise AuthError(401, "Correo o contraseña incorrectos.")
-            public_user = {key: user[key] for key in ("id_usuario", "nombre_completo", "email", "telefono")}
-            tutors = [dict(row) for row in repository.find_tutors(connection, user["id_usuario"])]
+            public_user = {key: user[key] for key in ("id_usuario", "nombre_completo", "email")}
     except (SQLAlchemyError, DatabaseNotConfigured, UnicodeDecodeError) as error:
         raise database_error(error) from None
-    return {"success": True, "message": "Credenciales verificadas correctamente",
-            "usuario": public_user, "tutores": tutors}
+    return {"success": True, "access_token": create_access_token(public_user["id_usuario"]),
+            "token_type": "bearer", "user": public_user}
+
+
+def current_user(user_id: int):
+    try:
+        with get_engine().connect() as connection:
+            user = repository.find_user_by_id(connection, user_id)
+    except (SQLAlchemyError, DatabaseNotConfigured, UnicodeDecodeError) as error:
+        raise database_error(error) from None
+    if not user:
+        raise AuthError(401, "Sesión inválida. Inicia sesión de nuevo.")
+    return dict(user)

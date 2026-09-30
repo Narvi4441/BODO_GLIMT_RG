@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 class Config:
+    JWT_SECRET = os.getenv("JWT_SECRET", "")
+    JWT_EXPIRE_MINUTES = max(1, int(os.getenv("JWT_EXPIRE_MINUTES", "1440")))
     # Conexión a PostgreSQL
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
