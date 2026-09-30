@@ -13,7 +13,7 @@ import { distanceMeters, pathLength, routeDeviation, scenarioInfrastructure, ref
 import { evidence24h } from './services/evidence24h'
 import type { Coordinate, DemoState, Destination, EvidenceSnapshot, RoutePlan, SafetyCamera, SavedEvidence, TracePoint, User } from './types'
 
-const DEMO_WALK_SPEED_MPS = 2.5
+const DEMO_WALK_SPEED_MPS = 5.56
 
 function validCoordinate(value: Coordinate | null | undefined): value is Coordinate {
   return !!value && Number.isFinite(value.lat) && Number.isFinite(value.lng)
