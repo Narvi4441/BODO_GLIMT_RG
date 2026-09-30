@@ -202,17 +202,19 @@ export function JourneyMap({ currentPosition, origin, destination, path: legacyP
   }, [session, currentPosition?.lat, currentPosition?.lng, path.length, destination])
 
   return <div className="journey-map" aria-label="Mapa del recorrido">
+    <div className="journey-map-viewport">
     <div className="journey-map-canvas" ref={canvas} />
     {(!ready || error) && <div className="map-placeholder" role={error ? 'alert' : 'status'}>
       <span className="map-placeholder-icon" aria-hidden="true">⌖</span>
       <strong>{error || (initial ? 'Cargando Google Maps…' : 'Tu recorrido empieza aquí')}</strong>
       {!error && !initial && <p>Obtén tu ubicación para ver el mapa.</p>}
     </div>}
-    {ready && !error && <>
-      {currentPosition && <button type="button" className="map-recenter" aria-label="Centrar en mi ubicación" onClick={() => {
+      {ready && !error && currentPosition && <button type="button" className="map-recenter" aria-label="Centrar en mi ubicación" onClick={() => {
         session?.map.panTo(currentPosition)
         session?.map.setZoom(16)
       }}>⌖</button>}
+    </div>
+    {ready && !error && <>
       <div className="map-legend">
         {path.length > 0 && <span><i className="map-dot"/>Ruta planeada</span>}
         {actualTrace.length > 0 && <span><i className="map-dot trace"/>Trayectoria real/demo</span>}
