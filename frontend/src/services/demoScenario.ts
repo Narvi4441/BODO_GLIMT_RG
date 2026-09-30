@@ -74,15 +74,11 @@ export function demoPosition(path: Coordinate[], distance: number, offset: numbe
 export function scenarioInfrastructure(path: Coordinate[]): { cameras: SafetyCamera[]; zones: RiskZone[] } {
   if (!path.length) return { cameras: [], zones: [] }
   const length = pathLength(path)
-  const cameras = Array.from({ length: 16 }, (_, i) => {
-    const base = routePoint(path, length * i / 15)!
-    return { id: `C5-DEMO-${String(i + 1).padStart(3, '0')}`, ...offsetPoint(base.point, 60 + (i % 4) * 65, base.bearing + (i % 2 ? 90 : -90)), hasCamera: true, hasHelpButton: i % 2 === 0, hasSpeaker: i % 3 === 0 }
-  })
   const incidents = [8, 12, 18, 27]
   const upperQuartile = [...incidents].sort((a, b) => a - b)[Math.ceil(incidents.length * .75) - 1]
   const zones: RiskZone[] = incidents.map((count, i) => ({
     zone_id: `ZONA-DEMO-${i + 1}`, center: routePoint(path, length * (i + 1) / 5)!.point,
     radius_m: 100 + i * 25, incident_count: count, severity: count > upperQuartile ? 'RED' : 'YELLOW',
   }))
-  return { cameras, zones }
+  return { cameras: [], zones }
 }

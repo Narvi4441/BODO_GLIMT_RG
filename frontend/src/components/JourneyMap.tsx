@@ -176,8 +176,8 @@ export function JourneyMap({ currentPosition, origin, destination, path: legacyP
   useEffect(() => {
     if (!session) return
     const markers = safetyCameras.map(camera => {
-      const detail = `${camera.id} · ${Math.round(camera.distance_m ?? 0)} m · Videovigilancia — SIMULACIÓN${camera.hasHelpButton ? ' · Botón de auxilio — SIMULACIÓN' : ''}${camera.hasSpeaker ? ' · Altavoz — SIMULACIÓN' : ''}`
-      const pin = marker(session.api, session.library, session.map, 'camera', 'C5', detail)
+      const detail = `${camera.id} · ${Math.round(camera.distance_m ?? 0)} m · Cámara del dataset${camera.hasHelpButton ? ' · Botón de auxilio' : ''}${camera.hasSpeaker ? ' · Altavoz' : ''}`
+      const pin = marker(session.api, session.library, session.map, 'camera', 'C', detail)
       pin.update(camera)
       return pin
     })
@@ -218,7 +218,7 @@ export function JourneyMap({ currentPosition, origin, destination, path: legacyP
       <div className="map-legend">
         {path.length > 0 && <span><i className="map-dot"/>Ruta planeada</span>}
         {actualTrace.length > 0 && <span><i className="map-dot trace"/>Trayectoria real/demo</span>}
-        {safetyCameras.length > 0 && <span>C5 DEMO</span>}
+        {safetyCameras.length > 0 && <span>Cámara del dataset</span>}
         {riskZones.length > 0 && <span>Zonas DEMO</span>}
         {currentPosition && <span><i className="map-dot current" />Tu ubicación</span>}
         {origin && path.length > 0 && <span><i className="map-dot origin" />Origen</span>}

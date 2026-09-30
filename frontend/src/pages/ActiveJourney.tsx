@@ -103,7 +103,7 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
         destination={routePlan?.destination}
         plannedPath={layers.route ? routePlan?.path : undefined}
         actualTrace={layers.trace ? actualTrace : undefined}
-        safetyCameras={demo && layers.cameras ? safetyCameras : undefined}
+        safetyCameras={layers.cameras ? safetyCameras : undefined}
         riskZones={demo && layers.zones ? riskZones : undefined}
       />
     </section>
@@ -179,20 +179,21 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
           <fieldset className="layer-options"><legend className="visually-hidden">Visibilidad de capas</legend>
             <label><input type="checkbox" checked={layers.route} onChange={event => setLayers(value => ({ ...value, route: event.target.checked }))}/>Ruta planeada <i className="map-dot"/></label>
             <label><input type="checkbox" checked={layers.trace} onChange={event => setLayers(value => ({ ...value, trace: event.target.checked }))}/>Trayectoria <i className="map-dot trace"/></label>
-            {demo && <>
-              <label><input type="checkbox" checked={layers.cameras} onChange={event => setLayers(value => ({ ...value, cameras: event.target.checked }))}/>C5 DEMO · hasta 500 m</label>
-              <label><input type="checkbox" checked={layers.zones} onChange={event => setLayers(value => ({ ...value, zones: event.target.checked }))}/>Zonas contextuales DEMO</label>
-            </>}
+            <label><input type="checkbox" checked={layers.cameras} onChange={event => setLayers(value => ({ ...value, cameras: event.target.checked }))}/>Cámara del dataset · hasta 500 m</label>
+            {demo && <label><input type="checkbox" checked={layers.zones} onChange={event => setLayers(value => ({ ...value, zones: event.target.checked }))}/>Zonas contextuales DEMO</label>}
+
           </fieldset>
           <p className="trace-legend">Turquesa: ruta planeada · Violeta: trayectoria {demo ? 'DEMO' : actualTrace.some(p => p.source === 'DEMO') ? 'mixta real/DEMO' : 'real'}</p>
-          {demo && <div className="demo-context">
-            <details><summary>C5 DEMO · información de los puntos</summary>
-              <p>Infraestructura de SIMULACIÓN.</p>
-              {safetyCameras.length ? <ul>{safetyCameras.map(camera => <li key={camera.id}><strong>{camera.id} · {Math.round(camera.distance_m!)} m</strong><br/>Videovigilancia — SIMULACIÓN{camera.hasHelpButton && <><br/>Botón de auxilio — SIMULACIÓN</>}{camera.hasSpeaker && <><br/>Altavoz — SIMULACIÓN</>}</li>)}</ul> : <p>No hay puntos DEMO dentro de 500 m de la posición disponible.</p>}
-            </details>
-            <details><summary>ESCENARIO ESTADÍSTICO DEMO</summary><p>Amarillo: incidencia contextual DEMO media.<br/>Rojo: incidencia contextual DEMO alta.</p>
+          {(demo || layers.cameras) && <div className="demo-context">
+            {layers.cameras && <details><summary>Cámara del dataset · información de los puntos</summary>
+              <p>Información proveniente del dataset.</p>
+              {safetyCameras.length ? <ul>{safetyCameras.map(camera => <li key={camera.id}><strong>{camera.id} · {Math.round(camera.distance_m!)} m</strong><br/>Cámara del dataset{camera.hasHelpButton && <><br/>Botón de auxilio</>}{camera.hasSpeaker && <><br/>Altavoz</>}</li>)}</ul> : <p>No hay cámaras del dataset dentro de 500 m de la posición disponible.</p>}
+            </details>}
+            {demo && (
+              <details><summary>ESCENARIO ESTADÍSTICO DEMO</summary><p>Amarillo: incidencia contextual DEMO media.<br/>Rojo: incidencia contextual DEMO alta.</p>
               <ul>{riskZones.map(zone => <li key={zone.zone_id}><strong>{zone.zone_id} · {zone.severity === 'RED' ? 'ROJA' : 'AMARILLA'}</strong> · Incidentes del escenario: {zone.incident_count} · {zone.severity === 'RED' ? 'Percentil superior' : 'Rango intermedio del dataset'}</li>)}</ul>
-            </details>
+              </details>
+            )}
           </div>}
         </div>
       </details>

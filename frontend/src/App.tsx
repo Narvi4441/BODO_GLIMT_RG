@@ -8,15 +8,22 @@ import { AuthPage } from './pages/AuthPage'
 import { MonitorPage } from './pages/MonitorPage'
 import { CheckInModal } from './components/CheckInModal'
 import { InstallPrompt } from './components/InstallPrompt'
+import cameraDataset from './data/camaras.json'
 import { demoPosition, distanceMeters, pathLength, routeDeviation, scenarioInfrastructure } from './services/demoScenario'
 import { evidence24h } from './services/evidence24h'
-import type { Coordinate, DemoState, Destination, EvidenceSnapshot, RoutePlan, SavedEvidence, TracePoint, User } from './types'
+import type { Coordinate, DemoState, Destination, EvidenceSnapshot, RoutePlan, SafetyCamera, SavedEvidence, TracePoint, User } from './types'
 
 function validCoordinate(value: Coordinate | null | undefined): value is Coordinate {
   return !!value && Number.isFinite(value.lat) && Number.isFinite(value.lng)
     && Math.abs(value.lat) <= 90 && Math.abs(value.lng) <= 180
 }
 
+const datasetCameras = cameraDataset.flatMap<SafetyCamera>(camera => {
+  const lat = Number(camera.lat)
+  const lng = Number(camera.lon)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return []
+  return [{ id: camera.id, lat, lng, hasCamera: true, hasHelpButton: camera.boton === 'CON BOTON', hasSpeaker: camera.altavoz === 'CON ALTAVOZ' }]
+})
 function lightPreference() {
   try { return localStorage.getItem('guardian-theme') === 'light' } catch { return false }
 }
@@ -61,7 +68,7 @@ function GuardianApp() {
   const currentPosition = demo ? demoPoint : s.point ? { lat: s.point.latitude, lng: s.point.longitude } : null
   const deviation = currentPosition && routePlan ? routeDeviation(currentPosition, routePlan.path) : null
   const infrastructure = useMemo(() => demo && routePlan ? scenarioInfrastructure(routePlan.path) : { cameras: [], zones: [] }, [!!demo, routePlan])
-  const nearbyCameras = useMemo(() => currentPosition ? infrastructure.cameras.map(camera => ({ ...camera, distance_m: distanceMeters(currentPosition, camera) })).filter(camera => camera.distance_m <= 500) : [], [infrastructure, currentPosition?.lat, currentPosition?.lng])
+  const nearbyCameras = useMemo(() => currentPosition ? datasetCameras.map(camera => ({ ...camera, distance_m: distanceMeters(currentPosition, camera) })).filter(camera => Number.isFinite(camera.distance_m) && camera.distance_m <= 500) : [], [currentPosition?.lat, currentPosition?.lng])
 
   useEffect(() => { guardian.setRoutePath(routePlan?.path ?? []) }, [routePlan])
   const refreshEvidence = useCallback(async () => {
