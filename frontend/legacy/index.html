@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>GUARDIAN CORE</title>
-<meta name="guardian-api-base" content="" />
+<title>GUARDIAN CORE · Mockup UI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'" />
@@ -72,6 +71,13 @@
   .locbtn { position: absolute; z-index: 1100; left: 10px; bottom: 160px; }
   .leaflet-bottom.leaflet-left { margin-bottom: 76px; }
   @media (max-width: 767px) { .locbtn { bottom: auto; top: 112px; left: 16px; } .leaflet-bottom.leaflet-left { margin-bottom: 0; } }
+  .sug { position: absolute; z-index: 60; left: 0; right: 0; top: 100%; margin-top: 6px; border-radius: 14px; overflow: hidden; max-height: 240px; overflow-y: auto; list-style: none; padding: 4px;
+    background: rgba(15, 17, 23, .96); border: 1px solid rgba(226, 232, 240, .18); color: #94A3B8;
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .07); }
+  .sug button { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 10px; font-size: 13px; line-height: 1.3; background: transparent; border: 0; border-radius: 10px; color: #94A3B8; cursor: pointer; transition: background .12s, color .12s; }
+  .sug button:hover, .sug button:focus-visible { background: #3B82F6; color: #fff; outline: none; }
+  .sug .ic { filter: grayscale(.3); }
+  .sug-msg { padding: 10px; font-size: 12px; color: #94A3B8; }
   .grab { padding: 10px 0 6px; cursor: grab; touch-action: none; } .grab i { display: block; width: 40px; height: 5px; border-radius: 9px; background: rgb(var(--mute) / .5); margin: 0 auto; }
   .card { border-radius: 16px; border: 1px solid rgb(var(--line) / .1); background: rgb(var(--line) / .05); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .chip { padding: 6px 4px; border-radius: 10px; font-size: 11px; border: 1px solid rgb(var(--line) / .1); cursor: pointer; background: transparent; color: inherit; }
@@ -86,16 +92,6 @@
   @keyframes sosp { 50% { opacity: .35 } }
   ::-webkit-scrollbar { width: 6px } ::-webkit-scrollbar-thumb { background: rgb(var(--mute) / .4); border-radius: 9px }
   .hidden-x { display: none !important; }
-  #login { overflow-y: auto; overscroll-behavior: contain; z-index: 3000; }
-  body.account-open #themeBtn { visibility: hidden; }
-  #loginForm, #registerForm { max-height: calc(100dvh - 32px); overflow-y: auto; }
-  .field[aria-invalid=true] { border-color: #EF4444; }
-  .auth-error { color: #EF4444; font-size: 12px; margin-top: 5px; }
-  .auth-message { font-size: 13px; line-height: 1.5; padding: 12px; border-radius: 12px; border: 1px solid rgb(var(--line)/.2); margin-top: 16px; }
-  #login button:disabled { opacity: .55; cursor: wait; }
-  #registerForm fieldset { border: 0; min-width: 0; padding: 0; margin: 18px 0; }
-  #registerForm legend { font-size: 12px; letter-spacing: .12em; margin-bottom: 12px; }
-  @media (max-width: 767px) { #login input, #login select { font-size: 16px; } }
   .fade { animation: fadein .4s ease both; } @keyframes fadein { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
 </style>
 </head>
@@ -120,45 +116,23 @@
         <p id="loginSub" class="text-sm text-mute mt-1">Selecciona tu perfil para entrar a la consola.</p>
         <div id="roles" class="grid grid-cols-2 gap-2 mt-5">
           <button type="button" data-role="user" class="chip on text-left !p-3 !rounded-2xl"><div class="text-xl">🎓</div><div class="mt-1 text-sm font-semibold">Usuario</div><div class="text-[11px] text-mute">Estudiante / Ciudadano</div></button>
-          <button type="button" data-role="admin" class="chip text-left !p-3 !rounded-2xl"><div class="text-xl">📡</div><div class="mt-1 text-sm font-semibold">Administrador</div><div class="text-[11px] text-mute">Centro de Monitoreo C5 · Demo</div></button>
+          <button type="button" data-role="admin" class="chip text-left !p-3 !rounded-2xl"><div class="text-xl">📡</div><div class="mt-1 text-sm font-semibold">Administrador</div><div class="text-[11px] text-mute">Centro de Monitoreo C5</div></button>
         </div>
         <div class="mt-5 space-y-3">
-          <div id="emBox"><label class="lbl" for="em">Correo</label><input id="em" type="email" autocomplete="email" class="field mt-1" placeholder="mia@correo.com" maxlength="100" />
+          <div><label class="lbl" for="em">Correo</label><input id="em" type="email" autocomplete="email" class="field mt-1" placeholder="mia@correo.com" />
             <p id="emErr" class="text-xs text-danger mt-1 hidden-x">Ingresa un correo válido.</p></div>
           <div id="pwBox"><label class="lbl" for="pw">Contraseña</label>
-            <div class="relative mt-1"><input id="pw" type="password" autocomplete="current-password" class="field pr-10" placeholder="••••••••" maxlength="128" />
+            <div class="relative mt-1"><input id="pw" type="password" autocomplete="current-password" class="field pr-10" placeholder="••••••••" />
               <button type="button" id="pwEye" aria-label="Mostrar contraseña" class="absolute right-3 top-1/2 -translate-y-1/2 text-mute">👁</button></div>
-            <p id="loginPwErr" class="auth-error hidden-x">Ingresa tu contraseña.</p></div>
-          <div id="sentMsg" class="hidden-x text-sm rounded-xl bg-warn/10 border border-warn/30 p-4">La recuperación por correo todavía no está conectada. No se ha enviado ningún mensaje.</div>
+            <div id="pwBars" class="flex gap-1 mt-2"><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div><div class="h-1 flex-1 rounded bg-line/10"></div></div>
+            <ul id="pwRules" class="grid grid-cols-2 gap-x-3 mt-2 text-[11px]"></ul></div>
+          <div id="sentMsg" class="hidden-x text-sm rounded-xl bg-safe/10 border border-safe/30 p-4">✓ Si el correo existe, recibirás instrucciones para restablecer tu contraseña.</div>
         </div>
-        <div id="loginMessage" class="auth-message hidden-x" role="status" aria-live="polite"></div>
         <div class="mt-6 flex flex-col gap-3 items-center">
           <button type="submit" id="loginBtn" class="metal w-full">Iniciar Sesión</button>
           <button type="button" id="recoverLink" class="text-xs text-mute underline underline-offset-4">¿Olvidaste tu contraseña?</button>
-          <button type="button" id="createAccount" class="text-sm text-cobalt underline underline-offset-4">Crear cuenta</button>
-          <p id="authHint" class="text-[10px] text-mute text-center">El acceso de usuario verifica tu contraseña con el backend. La consola administrativa es una demostración.</p>
+          <p class="text-[10px] text-mute text-center">Mockup: cualquier correo válido y contraseña que cumpla 3 de 4 reglas.</p>
         </div>
-      </form>
-      <form id="registerForm" novalidate class="glass fade hidden-x w-full max-w-md rounded-3xl p-6 sm:p-8 relative" aria-labelledby="registerTitle">
-        <button type="button" id="registerClose" aria-label="Cerrar registro" class="absolute right-4 top-4 text-mute text-lg">✕</button>
-        <h2 id="registerTitle" class="font-display font-extrabold text-xl">CREAR CUENTA</h2>
-        <p class="text-sm text-mute mt-1">Registra tu cuenta de usuario y a tu contacto de emergencia. Necesitas conexión.</p>
-        <fieldset class="space-y-3"><legend class="text-cobalt">USUARIO</legend>
-          <div><label class="lbl" for="regName">Nombre completo</label><input id="regName" name="nombre_completo" class="field mt-1" autocomplete="name" maxlength="150" required aria-describedby="regNameErr"/><p id="regNameErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regPhone">Teléfono</label><input id="regPhone" name="telefono" class="field mt-1" type="tel" autocomplete="tel" maxlength="30" placeholder="10 a 15 dígitos" required aria-describedby="regPhoneErr"/><p id="regPhoneErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regEmail">Correo electrónico</label><input id="regEmail" name="email" class="field mt-1" type="email" autocomplete="email" maxlength="100" required aria-describedby="regEmailErr"/><p id="regEmailErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regPassword">Contraseña</label><input id="regPassword" name="password" class="field mt-1" type="password" autocomplete="new-password" minlength="8" maxlength="128" required aria-describedby="regPasswordErr regPasswordHint"/><p id="regPasswordHint" class="text-xs text-mute mt-1">Entre 8 y 128 caracteres. No uses solo espacios.</p><p id="regPasswordErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regConfirm">Confirmar contraseña</label><input id="regConfirm" name="confirm_password" class="field mt-1" type="password" autocomplete="new-password" maxlength="128" required aria-describedby="regConfirmErr"/><p id="regConfirmErr" class="auth-error hidden-x"></p></div>
-        </fieldset>
-        <fieldset class="space-y-3"><legend class="text-cobalt">TUTOR / CONTACTO DE EMERGENCIA</legend>
-          <div><label class="lbl" for="regTutorName">Nombre completo del tutor</label><input id="regTutorName" class="field mt-1" autocomplete="section-tutor name" maxlength="150" required aria-describedby="regTutorNameErr"/><p id="regTutorNameErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regTutorPhone">Teléfono del tutor</label><input id="regTutorPhone" class="field mt-1" type="tel" autocomplete="section-tutor tel" maxlength="30" required aria-describedby="regTutorPhoneErr"/><p id="regTutorPhoneErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regTutorEmail">Correo del tutor</label><input id="regTutorEmail" class="field mt-1" type="email" autocomplete="section-tutor email" maxlength="100" required aria-describedby="regTutorEmailErr"/><p id="regTutorEmailErr" class="auth-error hidden-x"></p></div>
-          <div><label class="lbl" for="regRelation">Relación con el usuario</label><input id="regRelation" class="field mt-1" maxlength="50" placeholder="Madre, padre, familiar…" required aria-describedby="regRelationErr"/><p id="regRelationErr" class="auth-error hidden-x"></p></div>
-        </fieldset>
-        <div id="registerMessage" class="auth-message hidden-x" role="status" aria-live="polite"></div>
-        <button type="submit" id="registerBtn" class="metal w-full mt-4">Crear cuenta</button>
-        <button type="button" id="registerBack" class="text-xs text-mute underline underline-offset-4 w-full mt-4">← Volver al login</button>
       </form>
     </div>
 </div>
@@ -170,7 +144,7 @@
   <section id="viewUser" class="absolute inset-0">
     <div id="mapU" class="absolute inset-0"></div>
     <div class="sos-frame" id="sosFrameU"></div>
-    <button class="locbtn glass rounded-2xl px-3 py-2 text-xs" id="locU">📍 Ubicación actual</button>
+    <button class="locbtn glass rounded-2xl px-3 py-2 text-xs" id="locU">📍 Obtener Ubicación Actual</button>
     <div class="ui glass absolute top-4 left-4 rounded-2xl px-3 py-2 flex items-center gap-2"><button data-logout class="text-xs font-semibold hover:text-cobalt" title="Cerrar Sesión / Volver al Inicio">← Cerrar Sesión</button><span class="text-cobalt">🛡</span><span class="font-display font-extrabold text-sm pointer-events-none">GUARDIAN CORE</span><span id="gpsPill" class="hidden-x text-[11px] text-safe ml-1">● GPS activo</span></div>
 
     <button id="panelToggle" class="ui glass absolute top-4 right-20 rounded-2xl px-3 py-2 text-xs hidden md:block" aria-expanded="true">☰ Panel</button>
@@ -183,10 +157,11 @@
           <div class="min-w-0"><div class="font-semibold truncate" id="pName">Mia Alexandra Sánchez</div><div class="text-xs text-mute truncate" id="pEmail">mia@correo.com</div></div>
         </div>
         <div class="space-y-2"><div class="lbl">🚨 Contacto de emergencia (Tutor)</div>
-          <input class="field" id="tName" value="Laura Sánchez (Tutor)" /><input class="field" id="tPhone" value="+52 55 0000 0000" inputmode="tel" /><p class="text-[10px] text-mute">Los cambios de contacto en esta vista son locales; aún no se guardan en PostgreSQL.</p></div>
+          <input class="field" id="tName" value="Laura Sánchez (Tutor)" /><input class="field" id="tPhone" value="+52 55 0000 0000" inputmode="tel" /></div>
         <div class="space-y-2"><div class="lbl">⚙ Ajustes de cuenta</div>
           <label class="flex justify-between items-center text-sm gap-3">Espera del “¿Todo bien?”<select id="tOut" class="field !w-auto"><option value="60">1 min</option><option value="90" selected>1.5 min</option><option value="180">3 min</option></select></label>
-          <label class="flex justify-between items-center text-sm gap-3">Notificaciones de riesgo<input type="checkbox" id="tNotif" checked class="accent-blue-500 w-4 h-4" /></label></div>
+          <label class="flex justify-between items-center text-sm gap-3">Notificaciones de riesgo<input type="checkbox" id="tNotif" checked class="accent-blue-500 w-4 h-4" /></label>
+          <button id="verifyBtn" type="button" class="ghost w-full">📱 Verificar teléfono / Telegram</button></div>
       </div>
     </div>
 
@@ -197,8 +172,8 @@
       <div class="body">
         <section class="card">
           <h2 class="font-display font-bold text-sm">🧭 TRAYECTO</h2>
-          <div><label class="lbl">Origen</label><select id="selO" class="field mt-1"></select></div>
-          <div><label class="lbl">Destino</label><select id="selD" class="field mt-1"></select></div>
+          <div class="relative"><label class="lbl" for="inO">Origen</label><input id="inO" class="field mt-1" autocomplete="off" placeholder="Busca un lugar o usa tu ubicación…" /><ul id="sgO" class="sug hidden-x"></ul></div>
+          <div class="relative"><label class="lbl" for="inD">Destino</label><input id="inD" class="field mt-1" autocomplete="off" placeholder="Busca una dirección en CDMX…" /><ul id="sgD" class="sug hidden-x"></ul></div>
           <div><div class="lbl mb-1">Medio de transporte</div><div id="tpBtns" class="grid grid-cols-4 gap-1"></div></div>
           <div id="routeCards" class="space-y-2"></div>
           <button id="startBtn" class="metal w-full">Iniciar Trayecto</button>
@@ -234,7 +209,7 @@
       </div>
       <button data-logout class="glass rounded-2xl px-3 h-10 text-xs font-semibold pointer-events-auto" title="Cerrar Sesión / Volver al Inicio">← Cerrar Sesión</button>
     </header>
-    <button class="locbtn glass rounded-2xl px-3 py-2 text-xs" id="locA" style="left:auto;right:16px;bottom:130px;top:auto">📍 Ubicación actual</button>
+    <button class="locbtn glass rounded-2xl px-3 py-2 text-xs" id="locA" style="left:auto;right:16px;bottom:130px;top:auto">📍 Obtener Ubicación Actual</button>
     <aside class="sheet glass left" id="sheetA" style="top:64px">
       <div class="grab"><i></i></div>
       <div class="p-3 space-y-2 border-b border-line/10">
@@ -246,6 +221,20 @@
       <div id="adminLog" class="border-t border-line/10 p-3 h-28 overflow-y-auto font-mono text-[11px] text-mute space-y-0.5"></div>
     </aside>
   </section>
+
+  <!-- Modal: verificar teléfono (OTP por SMS simulado o Telegram) -->
+  <div id="otpModal" class="fixed inset-0 grid place-items-center bg-black/50 p-4" style="display:none;z-index:3100">
+    <div class="glass fade rounded-3xl p-6 w-full max-w-sm space-y-3" role="dialog" aria-labelledby="otpTitle">
+      <div class="flex justify-between items-center"><h3 id="otpTitle" class="font-display font-bold text-lg">VERIFICAR TELÉFONO</h3><button type="button" id="otpClose" class="text-mute" aria-label="Cerrar">✕</button></div>
+      <div><label class="lbl" for="otpPhone">Teléfono</label><input id="otpPhone" class="field mt-1" inputmode="tel" placeholder="+52 55 0000 0000" /></div>
+      <div><label class="lbl" for="otpChat">Chat ID de Telegram (opcional)</label><input id="otpChat" class="field mt-1" inputmode="numeric" placeholder="Ej. 1366125745" />
+        <p class="text-[11px] text-mute mt-1">Si lo indicas, el código llega a tu chat de Telegram vía el bot (en lugar de SMS). Abre el bot y envía /start antes.</p></div>
+      <button type="button" id="otpSend" class="metal w-full">Enviar código</button>
+      <div id="otpStep2" class="hidden-x space-y-2"><label class="lbl" for="otpCode">Código de 6 dígitos</label><input id="otpCode" class="field text-center tracking-[.4em] text-lg" inputmode="numeric" maxlength="6" placeholder="••••••" />
+        <button type="button" id="otpVerify" class="metal w-full">Verificar</button></div>
+      <p id="otpMsg" class="text-xs text-mute min-h-[1.2em]"></p>
+    </div>
+  </div>
 
   <!-- Modales -->
   <div id="modal" class="fixed inset-0 grid place-items-center bg-black/50 p-4" style="display:none;z-index:3000">
@@ -321,10 +310,11 @@ function pointAt(p, f) { const cum = [0]; for (let i = 1; i < p.length; i++) cum
 function densify(p, step = 40) { const out = [p[0]]; for (let i = 1; i < p.length; i++) { const n = Math.max(1, Math.round(hav(p[i - 1], p[i]) / (step * 10))); for (let k = 1; k <= n; k++) out.push([p[i - 1][0] + (p[i][0] - p[i - 1][0]) * k / n, p[i - 1][1] + (p[i][1] - p[i - 1][1]) * k / n]); } return out; }
 function risk(p) { let red = 0, amb = 0; p.forEach(q => { const z = zoneAt(q); if (z?.lv === 'danger') red++; else if (z?.lv === 'warn') amb++; }); return { red: red / p.length, amb: amb / p.length, score: (3 * red + amb) / p.length }; }
 function bez(a, b, off, n = 70) { const dy = b[0] - a[0], dx = b[1] - a[1], c = [(a[0] + b[0]) / 2 - dx * off, (a[1] + b[1]) / 2 + dy * off]; return Array.from({ length: n + 1 }, (_, i) => { const t = i / n, u = 1 - t; return [u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]; }); }
-function makeRoutes(oi, di, tp) {
-  const a = PLACES[oi].ll, b = PLACES[di].ll, kmh = TP.find(t => t.id === tp).kmh;
+function makeRoutes(oi, di, tp) { return routesLL(PLACES[oi].ll, PLACES[di].ll, tp, oi === 0 && di === 1); }
+function routesLL(a, b, tp, preset) {
+  const kmh = TP.find(t => t.id === tp).kmh;
   let n, s;
-  if (oi === 0 && di === 1) { n = densify(MOCK_NORMAL); s = densify(MOCK_SAFE); }
+  if (preset) { n = densify(MOCK_NORMAL); s = densify(MOCK_SAFE); }
   else { n = bez(a, b, .05); s = [-.5, -.35, -.2, -.1, .1, .2, .35, .5].map(k => bez(a, b, k)).sort((x, y) => (risk(x).score * 5e4 + plen(x)) - (risk(y).score * 5e4 + plen(y)))[0]; }
   const mk = (p, tr) => { const d = plen(p) * 1.28; return { path: p, dist: d, dur: d / 1000 / kmh * 3600 * tr, risk: risk(p) }; };
   return { normal: mk(n, tp === 'walk' ? 1 : 1.35), safe: mk(s, 1.05) };
@@ -352,7 +342,7 @@ $('#themeBtn').onclick = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 /* ================= LANDING ================= */
 const landingEl = $('#landing');
 let loginOpen = false;
-function setLogin(on) { if (accountUI.isBusy()) return; if (on) accountUI.resetAccountViews(); loginOpen = on; document.body.classList.toggle('account-open', on); $('#login').style.display = on ? 'flex' : 'none'; if (on) setTimeout(() => $('#em').focus(), 50); }
+function setLogin(on) { loginOpen = on; $('#login').style.display = on ? 'flex' : 'none'; if (on) setTimeout(() => $('#em').focus(), 50); }
 // Los listeners se registran PRIMERO para que el botón responda aunque otra parte falle
 $('#accessBtn').addEventListener('click', () => setLogin(true));
 $('#loginClose').addEventListener('click', () => setLogin(false));
@@ -387,33 +377,56 @@ try {
   startGlobe();
 } catch (err) { console.warn('Globo no disponible:', err); }
 
-/* ================= LOGIN (handlers en auth.js) ================= */
+/* ================= LOGIN ================= */
+let role = 'user', mode = 'login', touched = false;
+const RULES = [['Mínimo 8 caracteres', p => p.length >= 8], ['Una mayúscula', p => /[A-Z]/.test(p)], ['Un número', p => /\d/.test(p)], ['Un símbolo', p => /[^A-Za-z0-9]/.test(p)]];
+function pwUpdate() {
+  const p = $('#pw').value, ok = RULES.filter(r => r[1](p)).length, col = ['bg-danger', 'bg-danger', 'bg-warn', 'bg-cobalt', 'bg-safe'][ok];
+  $$('#pwBars div').forEach((d, i) => { d.className = 'h-1 flex-1 rounded ' + (i < ok ? col : 'bg-line/10'); });
+  $('#pwRules').innerHTML = RULES.map(r => `<li class="${r[1](p) ? 'text-safe' : 'text-mute'}">${r[1](p) ? '✓' : '○'} ${r[0]}</li>`).join('');
+  return ok;
+}
+$('#pw').addEventListener('input', pwUpdate); pwUpdate();
+$('#pwEye').onclick = () => { const i = $('#pw'); i.type = i.type === 'password' ? 'text' : 'password'; };
+$$('#roles button').forEach(b => b.onclick = () => { role = b.dataset.role; $$('#roles button').forEach(x => x.classList.toggle('on', x === b)); $('#loginBtn').textContent = role === 'admin' ? 'Iniciar Sesión · Centro de Control' : 'Iniciar Sesión'; });
+$('#recoverLink').onclick = () => {
+  mode = mode === 'login' ? 'recover' : 'login'; const rec = mode === 'recover';
+  $('#loginTitle').textContent = rec ? 'RECUPERAR CUENTA' : 'ACCESO'; $('#loginSub').textContent = rec ? 'Te enviaremos un enlace para restablecer tu contraseña.' : 'Selecciona tu perfil para entrar a la consola.';
+  hid($('#roles'), rec); hid($('#pwBox'), rec); hid($('#sentMsg'), true); $('#loginBtn').textContent = rec ? 'Enviar enlace' : 'Iniciar Sesión';
+  $('#recoverLink').textContent = rec ? '← Volver' : '¿Olvidaste tu contraseña?';
+};
+$('#loginForm').addEventListener('submit', e => {
+  e.preventDefault(); touched = true;
+  const em = $('#em').value.trim(), emOk = /^\S+@\S+\.\S+$/.test(em); hid($('#emErr'), emOk);
+  if (!emOk) return;
+  if (mode === 'recover') { hid($('#sentMsg'), false); return; }
+  if (pwUpdate() < 3 || $('#pw').value.length < 8) { $('#pw').focus(); return; }
+  enterApp(role, em);
+});
 
 /* ================= APP: entrar / salir ================= */
 const profile = { name: 'Mia Alexandra Sánchez', email: 'mia@correo.com', photo: null };
-let viewTransition = 0;
 function enterApp(r, email) {
-  const transition = ++viewTransition;
   profile.email = email; $('#pEmail').textContent = email;
+  tgSend('login', 'GUARDIAN CORE', `Sesión iniciada por ${r === 'admin' ? 'el administrador ' + email : 'el usuario ' + profile.name}.`);
   // a) Landing: fade-out
   landingEl.style.opacity = '0'; landingEl.style.pointerEvents = 'none';
   // b) Dashboard: fade-in
   const app = $('#app'); app.style.opacity = '0'; app.style.transition = 'opacity .45s ease'; show(app, true);
   if (r === 'admin') { show($('#viewUser'), false); show($('#viewAdmin'), true); initAdmin(); }
   else { show($('#viewAdmin'), false); show($('#viewUser'), true); initUser(); }
-  setTimeout(() => { if (transition === viewTransition) app.style.opacity = '1'; }, 30);
+  setTimeout(() => { app.style.opacity = '1'; }, 30);
   // c) Leaflet recalcula su tamaño sobre el contenedor ya visible
   const fix = () => maps.forEach(o => o.m.invalidateSize());
   setTimeout(() => { fix(); if (r !== 'admin' && U) fitRoutes(); }, 100);
   setTimeout(fix, 500);
-  setTimeout(() => { if (transition === viewTransition) { show(landingEl, false); setLogin(false); globeOn = false; } }, 480);
+  setTimeout(() => { show(landingEl, false); setLogin(false); globeOn = false; }, 480);
 }
 $$('[data-logout]').forEach(b => b.addEventListener('click', () => {
-  const transition = ++viewTransition;
   stopTrip(true); const app = $('#app'); app.style.opacity = '0';
   show(landingEl, true); setLogin(false); landingEl.style.pointerEvents = 'auto';
-  setTimeout(() => { if (transition === viewTransition) landingEl.style.opacity = '1'; }, 30); startGlobe();
-  setTimeout(() => { if (transition === viewTransition) show(app, false); }, 460);
+  setTimeout(() => { landingEl.style.opacity = '1'; }, 30); startGlobe();
+  setTimeout(() => show(app, false), 460);
 }));
 
 /* ================= GEOLOCALIZACIÓN (navigator.geolocation) ================= */
@@ -422,7 +435,7 @@ function notice(t, bad) {
   d.style.cssText = 'position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:4000;max-width:92vw'; d.textContent = (bad ? '⚠ ' : '✓ ') + t;
   document.body.appendChild(d); setTimeout(() => d.remove(), 5000);
 }
-function locate(map, btn) {
+function locate(map, btn, onFix) {
   if (!navigator.geolocation) return notice('Tu navegador no soporta geolocalización.', true);
   const label = btn.textContent; btn.textContent = '⌛ Buscando…'; btn.disabled = true;
   const paint = (pos, first) => {
@@ -434,12 +447,51 @@ function locate(map, btn) {
     if (first) map.flyTo(ll, 16, { duration: 1 });
   };
   navigator.geolocation.getCurrentPosition(pos => {
-    btn.textContent = label; btn.disabled = false; paint(pos, true); notice(`Ubicación obtenida (±${Math.round(pos.coords.accuracy)} m)`);
+    btn.textContent = label; btn.disabled = false; paint(pos, true); notice(`Ubicación obtenida (±${Math.round(pos.coords.accuracy)} m)`); if (onFix) onFix([pos.coords.latitude, pos.coords.longitude]);
     if (map._watch == null) map._watch = navigator.geolocation.watchPosition(p => paint(p, false), () => {}, { enableHighAccuracy: true });
   }, err => {
     btn.textContent = label; btn.disabled = false;
     notice(err.code === 1 ? 'Permiso de ubicación denegado. Actívalo en el candado de la barra de direcciones.' : 'No se pudo obtener tu ubicación.', true);
   }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+}
+
+/* ================= TELEGRAM (vía backend server.js; el token NUNCA va en el frontend) ================= */
+const API_BASE = window.GUARDIAN_API || (location.protocol === 'file:' ? 'http://localhost:3000' : '');
+let tgChat = '', tgWarned = false;   // tgChat: chat del tutor, solo tras verificarlo con OTP
+async function api(path, body) {
+  const r = await fetch(API_BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(j.error || 'HTTP ' + r.status);
+  return j;
+}
+const mapsUrl = ll => `https://www.google.com/maps?q=${ll[0].toFixed(6)},${ll[1].toFixed(6)}`;
+// Mejor posición disponible: GPS real (marcador azul) → posición del trayecto → origen
+function curLL() {
+  const real = U?.map?._me?.getLatLng(); if (real) return [real.lat, real.lng];
+  const m = U?.me?.getLatLng(); if (m) return [m.lat, m.lng];
+  return T.origin?.ll || null;
+}
+function tgSend(alertType, title, message, ll) {
+  api('/api/telegram/send-alert', { chatId: tgChat || undefined, title, message, alertType, locationUrl: ll ? mapsUrl(ll) : undefined })
+    .catch(e => { console.warn('Telegram:', e.message); if (!tgWarned) { tgWarned = true; notice('Telegram no disponible: ' + e.message, true); } });
+}
+function initOtp() {
+  const m = $('#otpModal'), msg = (t, bad) => { $('#otpMsg').textContent = t; $('#otpMsg').style.color = bad ? '#EF4444' : ''; };
+  const body = () => ({ phone: $('#otpPhone').value.trim(), telegramChatId: $('#otpChat').value.trim() });
+  $('#verifyBtn').addEventListener('click', () => { hid($('#profileMenu'), true); show(m, true, 'grid'); hid($('#otpStep2'), true); msg(''); });
+  $('#otpClose').addEventListener('click', () => show(m, false));
+  $('#otpSend').addEventListener('click', async () => {
+    const b = $('#otpSend'); b.disabled = true; msg('Enviando…');
+    try { const j = await api('/api/otp/request', body()); msg('✓ ' + j.message); hid($('#otpStep2'), false); $('#otpCode').focus(); }
+    catch (e) { msg(e.message, true); } finally { b.disabled = false; }
+  });
+  $('#otpVerify').addEventListener('click', async () => {
+    try {
+      const j = await api('/api/otp/verify', { ...body(), code: $('#otpCode').value.trim() });
+      tgChat = j.telegramChatId || ''; msg(tgChat ? '✓ Verificado. Las alertas irán a tu Telegram.' : '✓ Teléfono verificado.');
+      setTimeout(() => show(m, false), 1200);
+    } catch (e) { msg(e.message, true); }
+  });
 }
 
 /* ================= HOJA INFERIOR (Apple Maps) ================= */
@@ -468,8 +520,87 @@ function modal({ icon, title, body, count, btns }) {
 const closeModal = () => show($('#modal'), false);
 
 /* ================= VISTA USUARIO ================= */
+/* ================= NOMINATIM (búsqueda) + OSRM (rutas por calles) ================= */
+const VIEWBOX = '-99.36,19.58,-98.94,19.04'; // CDMX: izquierda,arriba,derecha,abajo
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function jget(url, ms = 9000) {
+  const c = new AbortController(), id = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); } finally { clearTimeout(id); }
+}
+const shortName = d => d.split(', ').slice(0, 3).join(', ');
+function placeLabel(r) {
+  const ad = r.address || {}, alc = ad.city_district || ad.borough || ad.municipality || ad.county || '';
+  const isHood = ['suburb', 'neighbourhood', 'quarter', 'city_block'].includes(r.addresstype);
+  let main = r.name || ad.road || ad.neighbourhood || ad.suburb || '';
+  if (isHood && main && !/^colonia\b/i.test(main)) main = 'Colonia ' + main;
+  const parts = [main, (!isHood && (ad.neighbourhood || ad.suburb)) || '', alc].filter(Boolean);
+  const uniq = parts.filter((x, i) => parts.findIndex(y => y.toLowerCase() === x.toLowerCase()) === i);
+  return (uniq.length ? uniq.slice(0, 3).join(', ') : shortName(r.display_name)) + ', CDMX';
+}
+async function searchPlaces(q) {
+  const j = await jget(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&q=${encodeURIComponent(q + ', Ciudad de México')}&viewbox=${VIEWBOX}&bounded=1&countrycodes=mx&limit=7&accept-language=es`);
+  const seen = new Set();
+  return j.map(r => ({ name: placeLabel(r), ll: [+r.lat, +r.lon] })).filter(it => !seen.has(it.name) && seen.add(it.name));
+}
+async function reverseGeo(ll) {
+  const j = await jget(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${ll[0]}&lon=${ll[1]}&zoom=18&accept-language=es`);
+  return j.display_name ? shortName(j.display_name) : null;
+}
+async function osrm(pts, alt) {
+  const c = pts.map(q => q[1] + ',' + q[0]).join(';');
+  const j = await jget(`https://router.project-osrm.org/route/v1/driving/${c}?overview=full&geometries=geojson&alternatives=${alt ? 'true' : 'false'}`, 12000);
+  if (j.code !== 'Ok' || !j.routes?.length) throw new Error('OSRM ' + j.code);
+  return j.routes.map(r => ({ path: r.geometry.coordinates.map(q => [q[1], q[0]]), dist: r.distance }));
+}
+// Ruta normal = la más corta de OSRM. SafeRoute = candidata (alternativas + desvíos por waypoint) con menor exposición a zonas rojas.
+async function realRoutes(a, b, tp) {
+  const kmh = TP.find(t => t.id === tp).kmh;
+  const mk = (o, tr) => ({ path: o.path, dist: o.dist, dur: o.dist / 1000 / kmh * 3600 * tr, risk: risk(o.path) });
+  const alts = await osrm([a, b], true);
+  const normal = mk(alts[0], tp === 'walk' ? 1 : 1.35);        // tráfico simulado
+  const cands = [normal, ...alts.slice(1).map(o => mk(o, 1.05))];
+  if (normal.risk.red > .02 || cands.length < 2) {
+    const dy = b[0] - a[0], dx = b[1] - a[1], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const extra = await Promise.all([.25, -.25].map(k => osrm([a, [m[0] - dx * k, m[1] + dy * k], b], false).then(x => x[0]).catch(() => null)));
+    extra.filter(Boolean).forEach(o => cands.push(mk(o, 1.05)));
+  }
+  const cost = r => r.risk.score * 2e4 + r.dist;
+  const safe = [...cands].sort((x, y) => cost(x) - cost(y))[0];
+  return { normal, safe };
+}
+
+/* Autocompletado: sugerencias locales inmediatas + Nominatim (con debounce, 1 petición/450 ms) */
+function bindSearch(inp, list, onPick) {
+  let timer = null, tok = 0;
+  const local = q => PLACES.filter(p => !q || p.n.toLowerCase().includes(q.toLowerCase())).slice(0, 5).map(p => ({ name: p.n, ll: p.ll }));
+  const status = msg => { list.innerHTML = `<li class="sug-msg">${esc(msg)}</li>`; hid(list, false); };
+  const render = items => {
+    list.innerHTML = items.map((it, i) => `<li><button type="button" data-i="${i}"><span class="ic">📍</span><span>${esc(it.name)}</span></button></li>`).join('');
+    $$('button', list).forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); pick(items[+b.dataset.i]); }));
+    hid(list, !items.length);
+  };
+  const pick = it => { inp.value = it.name; hid(list, true); inp.blur(); onPick(it); };   // a) texto  b) cierra el menú  c/d) lo resuelve onPick
+  inp.addEventListener('input', () => {
+    clearTimeout(timer); const q = inp.value.trim(), my = ++tok;
+    if (q.length < 3) { render(local(q)); return; }
+    status('Buscando colonias y lugares en CDMX…');
+    timer = setTimeout(async () => {
+      try {
+        const res = await searchPlaces(q); if (my !== tok) return;
+        if (res.length) render(res); else status('Sin resultados en CDMX para “' + q + '”');
+      } catch (e) { if (my === tok) { const l = local(q); l.length ? render(l) : status('No se pudo buscar (sin conexión a Nominatim)'); } }
+    }, 400);
+  });
+  inp.addEventListener('focus', () => { if (inp.value.trim().length < 3) render(local('')); });
+  inp.addEventListener('blur', () => setTimeout(() => hid(list, true), 150));
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hid(list, true);
+    if (e.key === 'Enter') { e.preventDefault(); const b = $('button', list); if (b) b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); }
+  });
+}
+
 let U = null; // { map, layers... }
-const T = { status: 'idle', routes: null, choice: 'safe', f: 0, tp: 'micro', timer: null, cd: null, zone: null, tick: 0 };
+const T = { origin: null, dest: null, src: '', status: 'idle', routes: null, choice: 'safe', f: 0, tp: 'micro', timer: null, cd: null, zone: null, tick: 0 };
 function initUser() {
   if (!HAS_L) { libError(); return; }
   if (U) { setTimeout(() => { U.map.invalidateSize(); fitRoutes(); }, 60); return; }
@@ -477,11 +608,13 @@ function initUser() {
   U = { map, routeLayer: L.layerGroup().addTo(map), me: null };
   drawZones(map, L.layerGroup().addTo(map));
   initSheet($('#sheetU'));
-  const opts = PLACES.map((p, i) => `<option value="${i}">${p.n}</option>`).join('');
-  $('#selO').innerHTML = opts; $('#selD').innerHTML = opts; $('#selO').value = 0; $('#selD').value = 1;
+  U.pins = L.layerGroup().addTo(map);
+  T.origin = { name: PLACES[0].n, ll: PLACES[0].ll }; T.dest = { name: PLACES[1].n, ll: PLACES[1].ll };
+  $('#inO').value = T.origin.name; $('#inD').value = T.dest.name;
+  bindSearch($('#inO'), $('#sgO'), it => { T.origin = { name: it.name, ll: it.ll }; if (T.status === 'idle') plan(); });
+  bindSearch($('#inD'), $('#sgD'), it => { T.dest = { name: it.name, ll: it.ll }; drawPins(); map.flyTo(it.ll, 15, { duration: .8 }); if (T.status === 'idle') plan(); });
   $('#tpBtns').innerHTML = TP.map(t => `<button class="chip ${t.id === T.tp ? 'on' : ''}" data-tp="${t.id}">${t.n}</button>`).join('');
   $$('#tpBtns button').forEach(b => b.onclick = () => { if (T.status !== 'idle') return; T.tp = b.dataset.tp; $$('#tpBtns button').forEach(x => x.classList.toggle('on', x === b)); plan(); });
-  $('#selO').onchange = $('#selD').onchange = () => { if (T.status === 'idle') plan(); };
   // acciones
   $('#startBtn').onclick = startTrip; $('#cancelBtn').onclick = () => stopTrip(true); $('#devBtn').onclick = deviation;
   $('#panicBtn').onclick = () => sos('manual');
@@ -492,12 +625,33 @@ function initUser() {
   $('#photoBtn').onclick = () => $('#photoIn').click();
   $('#photoIn').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { ['#avatarU', '#avatarBig'].forEach(s => { $(s).innerHTML = `<img src="${r.result}" style="width:100%;height:100%;object-fit:cover">`; }); }; r.readAsDataURL(f); };
   $('#panelToggle').onclick = () => { const sh = $('#sheetU'), open = sh.style.display !== 'none'; sh.style.display = open ? 'none' : 'flex'; $('#panelToggle').setAttribute('aria-expanded', !open); };
-  $('#locU').onclick = () => locate(map, $('#locU'));
+  $('#locU').onclick = () => locate(map, $('#locU'), ll => {
+    if (T.status !== 'idle') return;
+    const me = { name: 'Ubicación Actual (GPS)', ll }; T.origin = me; $('#inO').value = me.name; plan();
+    reverseGeo(ll).then(n => { if (n && T.origin === me) { me.name = n; $('#inO').value = n; } }).catch(() => {});
+  });
+  $('#startBtn').disabled = true; initOtp();
   plan();
 }
-function plan() {
-  T.routes = makeRoutes(+$('#selO').value, +$('#selD').value, T.tp); T.choice = 'safe'; T.f = 0;
-  drawRoutes(); renderCards(); fitRoutes();
+let planTok = 0;
+async function plan() {
+  if (!T.origin || !T.dest) return;
+  const tok = ++planTok; T.routes = null; T.f = 0; U.routeLayer.clearLayers(); drawPins();
+  $('#startBtn').disabled = true; $('#routeCards').innerHTML = '<p class="text-sm text-mute">⌛ Calculando ruta por calles reales…</p>';
+  let r; T.src = 'osrm';
+  try { r = await realRoutes(T.origin.ll, T.dest.ll, T.tp); }
+  catch (e) {
+    console.warn('OSRM no disponible:', e); T.src = 'mock';
+    r = routesLL(T.origin.ll, T.dest.ll, T.tp, T.origin.ll === PLACES[0].ll && T.dest.ll === PLACES[1].ll);
+    notice('No se pudo contactar a OSRM: se muestra una ruta aproximada de demostración.', true);
+  }
+  if (tok !== planTok) return;
+  T.routes = r; T.choice = 'safe'; drawRoutes(); renderCards(); fitRoutes(); $('#startBtn').disabled = false;
+}
+function drawPins() {
+  U.pins.clearLayers();
+  const pin = (ll, c, t) => L.marker(ll, { icon: L.divIcon({ className: '', html: `<div class="dot" style="background:${c};color:${c};box-shadow:0 0 12px ${c}"></div><span class="pin" style="background:${c}cc">${t}</span>`, iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(U.pins);
+  pin(T.origin.ll, '#94A3B8', 'Origen'); pin(T.dest.ll, '#10B981', 'Destino');
 }
 function drawRoutes() {
   const g = U.routeLayer; g.clearLayers(); const { normal, safe } = T.routes, sel = T.choice;
@@ -507,27 +661,26 @@ function drawRoutes() {
   let seg = [];
   normal.path.forEach((q, i) => { const bad = zoneAt(q)?.lv === 'danger'; if (bad) seg.push(q); if ((!bad || i === normal.path.length - 1) && seg.length > 1) { line(seg, { color: '#EF4444', weight: 5, className: 'neon-red', opacity: sel === 'normal' ? 1 : .6 }); seg = []; } else if (!bad) seg = []; });
   line(safe.path, { color: '#10B981', weight: 6, opacity: sel === 'safe' ? 1 : .5, className: 'neon-green' });
-  const o = PLACES[+$('#selO').value], d = PLACES[+$('#selD').value];
-  const pin = (ll, c, t) => L.marker(ll, { icon: L.divIcon({ className: '', html: `<div class="dot" style="background:${c};color:${c};box-shadow:0 0 12px ${c}"></div><span class="pin" style="background:${c}cc">${t}</span>`, iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(g);
-  pin(o.ll, '#94A3B8', 'Origen'); pin(d.ll, '#10B981', 'Destino');
+  drawPins();
 }
-function fitRoutes() { if (!T.routes) return; U.map.invalidateSize(); const pad = innerWidth >= 768 ? { paddingTopLeft: [40, 80], paddingBottomRight: [430, 40] } : { padding: [40, 60] }; U.map.fitBounds(L.latLngBounds(T.routes.safe.path.concat(T.routes.normal.path)), Object.assign({ maxZoom: 13 }, pad)); }
+function fitRoutes() { if (!T.routes) return; U.map.invalidateSize(); const pad = innerWidth >= 768 ? { paddingTopLeft: [40, 80], paddingBottomRight: [430, 40] } : { padding: [40, 60] }; U.map.fitBounds(L.latLngBounds(T.routes.safe.path.concat(T.routes.normal.path)), Object.assign({ maxZoom: 16 }, pad)); }
 const fmtMin = s => Math.max(1, Math.round(s / 60)) + ' min', fmtKm = m => (m / 1000).toFixed(1) + ' km';
 function renderCards() {
   const same = T.routes.safe === T.routes.normal;
   $('#routeCards').innerHTML = [['safe', 'SafeRoute GUARDIAN', 'text-cobalt'], ['normal', 'Ruta Normal', 'text-slate-400']].map(([k, n, c]) => {
     const r = T.routes[k], rk = r.risk.red > .05 ? `<b class="text-danger">${Math.round(r.risk.red * 100)}% en zona roja</b>` : r.risk.amb > .1 ? '<b class="text-warn">riesgo moderado</b>' : '<b class="text-safe">bajo riesgo</b>';
     return `<button class="rcard ${T.choice === k ? 'on' : ''}" data-k="${k}"><div class="flex justify-between"><span class="text-sm font-semibold ${c}">${n}${same && k === 'safe' ? ' (igual)' : ''}</span><span class="text-sm tabular-nums">${fmtMin(r.dur)}</span></div><div class="text-[11px] text-mute flex justify-between mt-0.5"><span>${fmtKm(r.dist)}</span><span>${rk}</span></div></button>`;
-  }).join('') + '<p class="text-[10px] text-mute">Datos ficticios (mock) · sin conexión a backend</p>';
+  }).join('') + `<p class="text-[10px] text-mute">${T.src === 'osrm' ? 'Ruta por calles reales · OSRM + OpenStreetMap · tráfico simulado' : 'Ruta aproximada de demostración (sin OSRM)'}</p>`;
   $$('#routeCards .rcard').forEach(b => b.onclick = () => { if (T.status !== 'idle') return; T.choice = b.dataset.k; drawRoutes(); renderCards(); });
 }
 const DEMO_S = 75;
 function startTrip() {
   if (T.status !== 'idle') return; T.status = 'active'; T.f = 0; T.tick = 0; T.zone = null;
   hid($('#live'), false); hid($('#startBtn'), true); hid($('#gpsPill'), false);
-  $$('#selO,#selD').forEach(s => s.disabled = true);
+  $$('#inO,#inD').forEach(s => s.disabled = true);
   if (navigator.geolocation) navigator.geolocation.getCurrentPosition(() => {}, () => { $('#gpsPill').textContent = '● GPS simulado'; $('#gpsPill').className = 'text-[11px] text-warn ml-1'; }, { timeout: 5000 });
   const r = T.routes[T.choice]; $('#mRoute').textContent = T.choice === 'safe' ? 'SafeRoute' : 'Normal'; $('#mTp').textContent = TP.find(t => t.id === T.tp).n;
+  tgSend('trip', 'NUEVO TRAYECTO', `${T.origin.name} ➔ ${T.dest.name}\nDistancia: ${fmtKm(r.dist)} · ETA: ${fmtMin(r.dur)} · Ruta: ${T.choice === 'safe' ? 'SafeRoute' : 'Normal'}`, T.origin.ll);
   U.me = L.marker(r.path[0], { zIndexOffset: 1000, icon: L.divIcon({ className: '', html: '<div class="dot pulse" style="background:#3B82F6;color:#3B82F6;box-shadow:0 0 14px #3B82F6"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(U.map);
   U.map.setView(r.path[0], 15);
   T.timer = setInterval(step, 1000); step();
@@ -537,16 +690,16 @@ function step() {
   const p = pointAt(r.path, T.f); U.me.setLatLng(p); U.map.panTo(p, { animate: true, duration: .9 });
   const kmh = r.dist / r.dur * 3.6; $('#mSpd').textContent = Math.round(kmh * (.85 + Math.random() * .3)) + ' km/h';
   $('#mEta').textContent = fmtMin(r.dur * (1 - T.f) * (1 + .12 * Math.sin(T.tick / 12))); $('#bar').style.width = T.f * 100 + '%';
-  const z = zoneAt(p); if ((z?.id ?? null) !== T.zone) { T.zone = z?.id ?? null; if (z?.lv === 'danger') toast('⚠ Atención: Transitando por tramo con alta densidad de reportes recientes.', z.name); }
+  const z = zoneAt(p); if ((z?.id ?? null) !== T.zone) { T.zone = z?.id ?? null; if (z?.lv === 'danger') { toast('⚠ Atención: Transitando por tramo con alta densidad de reportes recientes.', z.name); tgSend('zone', 'ALERTA DE ZONA', `El usuario ha ingresado a un sector de riesgo (${z.name}).`, p); } }
   if (T.f >= 1) arrival();
 }
 function stopTrip(silent) {
   clearInterval(T.timer); clearInterval(T.cd); T.status = 'idle'; T.f = 0; closeModal();
-  if (U) { if (U.me) { U.me.remove(); U.me = null; } hid($('#live'), true); hid($('#startBtn'), false); hid($('#gpsPill'), true); $$('#selO,#selD').forEach(s => s.disabled = false); hid($('#sosLog'), true); $('#sosFrameU').style.display = 'none'; if (silent && T.routes) fitRoutes(); }
+  if (U) { if (U.me) { U.me.remove(); U.me = null; } hid($('#live'), true); hid($('#startBtn'), false); hid($('#gpsPill'), true); $$('#inO,#inD').forEach(s => s.disabled = false); hid($('#sosLog'), true); $('#sosFrameU').style.display = 'none'; if (silent && T.routes) fitRoutes(); }
 }
 function arrival() {
   T.status = 'arrival'; clearInterval(T.timer);
-  modal({ icon: '🏁', title: '¿Has llegado a tu domicilio?', body: 'Confirma para finalizar el trayecto de forma segura.', btns: [['Sí, ya llegué', () => { stopTrip(true); toast_ok('Trayecto finalizado. ¡Llegaste bien!'); }, true], ['Todavía no', () => { closeModal(); checkin(); }]] });
+  modal({ icon: '🏁', title: '¿Has llegado a tu domicilio?', body: 'Confirma para finalizar el trayecto de forma segura.', btns: [['Sí, ya llegué', () => { tgSend('arrival', 'LLEGADA SEGURA', 'El usuario ha confirmado la llegada a su destino.', T.dest.ll); stopTrip(true); toast_ok('Trayecto finalizado. ¡Llegaste bien!'); }, true], ['Todavía no', () => { closeModal(); checkin(); }]] });
 }
 function toast_ok(t) { const d = document.createElement('div'); d.className = 'glass fade rounded-2xl px-4 py-3 text-sm'; d.textContent = '✓ ' + t; $('#toasts').appendChild(d); setTimeout(() => d.remove(), 4000); }
 function deviation() { if (T.status === 'active') checkin(); }
@@ -559,7 +712,8 @@ function checkin() {
 }
 function sos(why) {
   clearInterval(T.timer); const prev = T.status; T.status = 'sos';
-  const p = U.me ? U.me.getLatLng() : L.latLng(PLACES[+$('#selO').value].ll), at = `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  const p = U.me ? U.me.getLatLng() : L.latLng(T.origin.ll), at = `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  tgSend('sos', 'ALERTA SOS ACTIVADA', why === 'auto' ? 'Sin respuesta al “¿Todo bien?”: alerta automática.' : 'El usuario presionó el botón de pánico.', curLL() || [p.lat, p.lng]);
   const lines = [`${stamp()} · SOS ${why === 'auto' ? 'automático (sin respuesta)' : 'manual'} activado`, `${stamp()} · Ubicación (${at}) e historial enviados a ${$('#tName').value}`, `${stamp()} · Alerta transmitida al Centro de Control C5`, '(simulado · mockup)'];
   $('#sosLog').innerHTML = lines.map(l => `<div>${l}</div>`).join('') + '<button class="ghost mt-2 font-sans" id="sosCancel">Cancelar (falsa alarma)</button>'; hid($('#sosLog'), false);
   $('#sosFrameU').style.display = 'block'; $('#panicBtn').textContent = '🚨 SOS ACTIVO';
@@ -619,9 +773,7 @@ function action(a, id) {
 }
 
 setTheme(theme);
-const accountUI = window.initGuardianAuth({ $, $$, hid, profile, enterApp, notice, setLogin });
 }); // fin DOMContentLoaded
 </script>
-<script src="auth.js"></script>
 </body>
 </html>
