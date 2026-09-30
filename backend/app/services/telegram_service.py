@@ -1,48 +1,32 @@
+"""Entrega de enlaces Monitor por Telegram, sin exponer credenciales."""
 import os
+
 import requests
 
 
-def send_monitor_link(
-    *,
-    monitor_url: str,
-    destination: str | None = None,
-    reason: str = "Recorrido compartido",
-) -> None:
+class TelegramDeliveryError(RuntimeError):
+    pass
+
+
+def send_monitor_link(monitor_url: str, destination: str | None = None) -> None:
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_DEFAULT_CHAT_ID", "").strip()
-
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN no configurado")
-
-    if not chat_id:
-        raise RuntimeError("TELEGRAM_DEFAULT_CHAT_ID no configurado")
-
-    text = (
-        "🛡️ GUARDIAN Core — seguimiento compartido\n\n"
-        f"{reason}\n"
-    )
-
+    if not token or not chat_id:
+        raise TelegramDeliveryError("No se pudo enviar el enlace por Telegram.")
+    message = "🛡️ GUARDIAN Core — seguimiento compartido\n\nSe inició un acompañamiento.\n\n"
     if destination:
-        text += f"\nDestino: {destination}\n"
-
-    text += (
-        "\nPuedes visualizar el recorrido mientras permanezca activo:\n"
-        f"{monitor_url}"
-    )
-
-    response = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={
-            "chat_id": chat_id,
-            "text": text,
-            "disable_web_page_preview": False,
-        },
-        timeout=8,
-    )
-
-    response.raise_for_status()
-
-    data = response.json()
-
-    if not data.get("ok"):
-        raise RuntimeError("Telegram rechazó el mensaje")
+        message += f"Destino: {destination}\n\n"
+    message += ("Puedes visualizar la ubicación, riesgo y recorrido\n"
+                "mientras el trayecto permanezca activo:\n\n" + monitor_url)
+    try:
+        with requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": message},
+            timeout=8,
+            allow_redirects=False,
+        ) as response:
+            if response.status_code != 200 or response.json().get("ok") is not True:
+                raise TelegramDeliveryError("No se pudo enviar el enlace por Telegram.")
+    except (requests.RequestException, ValueError, AttributeError, TypeError):
+        # Las excepciones HTTP pueden contener la URL con el token: no propagarlas.
+        raise TelegramDeliveryError("No se pudo enviar el enlace por Telegram.") from None

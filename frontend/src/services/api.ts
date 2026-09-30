@@ -42,6 +42,7 @@ async function request<T>(path: string, body?: unknown, options: { auth?: boolea
 export const api = {
   monitorContacts: (signal?: AbortSignal) => request<MonitorContact[]>('/api/monitor/contacts', undefined, { signal }),
   createMonitorAccess: (body: MonitorAccessRequest) => request<{ token: string }>('/api/monitor/access', body),
+  sendMonitorTelegram: (journeyId: string, tutorId: number) => request<{ ok: boolean; sent: boolean; monitor_url: string }>('/api/monitor/send-telegram', { journey_id: journeyId, tutor_id: tutorId }),
   monitor: (token: string, signal?: AbortSignal) => request<MonitorSnapshot>(`/api/monitor/${encodeURIComponent(token)}`, undefined, { auth: false, signal }),
   sendCommand: (journey_id: string, user_id: string) => request<Command>('/api/commands', { journey_id, user_id, action: 'EMERGENCY_MODE', value: null }),
   planRoute: (origin: Coordinate, destination: Coordinate) => request<Omit<RoutePlan, 'destinationName' | 'destinationAddress'>>('/api/routes/plan', { origin, destination }),

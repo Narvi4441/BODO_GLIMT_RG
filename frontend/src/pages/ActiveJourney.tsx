@@ -16,6 +16,9 @@ function MonitorSharing({ journeyId, routePlan }: { journeyId: string; routePlan
   const [loading, setLoading] = useState(true)
   const [attempt, setAttempt] = useState(0)
   const [sharing, setSharing] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [telegramMessage, setTelegramMessage] = useState('')
+  const telegramBusy = useRef(false)
   const [link, setLink] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -36,10 +39,12 @@ function MonitorSharing({ journeyId, routePlan }: { journeyId: string; routePlan
     setLink('')
     setCopied(false)
     setSharing(false)
+    setSending(false)
+    setTelegramMessage('')
     return () => { version.current++ }
   }, [journeyId, selected, routePlan])
   async function share() {
-    if (!selected || sharing) return
+    if (!selected || sharing || telegramBusy.current) return
     const request = ++version.current
     setSharing(true)
     setLink('')
@@ -63,16 +68,47 @@ function MonitorSharing({ journeyId, routePlan }: { journeyId: string; routePlan
     try { await navigator.clipboard.writeText(link); setCopied(true) }
     catch { setError('No se pudo copiar. Selecciona el enlace para copiarlo manualmente.') }
   }
+  async function sendTelegram() {
+    const selectedTutor = contacts.find(contact => contact.id_tutor === Number(selected))
+    if (!selectedTutor || sharing || telegramBusy.current) return
+    telegramBusy.current = true
+    const request = ++version.current
+    setSending(true)
+    setTelegramMessage('')
+    setError('')
+    setCopied(false)
+    try {
+      // Registrar el plan actual usando el acceso existente; Telegram reutiliza ese token.
+      await api.createMonitorAccess({
+        journey_id: journeyId, tutor_id: selectedTutor.id_tutor,
+        destination: routePlan ? { ...routePlan.destination, name: routePlan.destinationName, address: routePlan.destinationAddress } : null,
+        planned_path: routePlan?.path ?? [],
+      })
+      if (version.current !== request) return
+      const result = await api.sendMonitorTelegram(journeyId, selectedTutor.id_tutor)
+      if (version.current !== request) return
+      if (!result.ok || !result.sent) throw new Error('Telegram no confirmó el envío.')
+      setLink(result.monitor_url)
+      setTelegramMessage('Enlace enviado por Telegram.')
+    } catch {
+      if (version.current === request) setError('No se pudo enviar el enlace por Telegram.')
+    } finally {
+      telegramBusy.current = false
+      if (version.current === request) setSending(false)
+    }
+  }
   return <details className="disclosure monitor-sharing">
     <summary>Persona de confianza <span className="summary-hint">Compartir recorrido activo</span></summary>
     <div className="disclosure-body">
       <p className="muted">El enlace permite ver este recorrido mientras siga activo, durante un máximo de 24 horas. Compártelo solo con la persona seleccionada: quien tenga el enlace podrá abrirlo.</p>
       {loading ? <p role="status">Consultando personas vinculadas…</p> : <>
-        {contacts.length ? <><label htmlFor="monitor-contact">Persona vinculada</label><select id="monitor-contact" value={selected} onChange={event => setSelected(event.target.value)}><option value="">Selecciona una persona</option>{contacts.map(contact => <option key={contact.id_tutor} value={contact.id_tutor}>{contact.nombre_completo} · {contact.relacion}</option>)}</select>
-          <button className="secondary full" disabled={!selected || sharing} onClick={() => void share()}>{sharing ? 'Preparando enlace…' : 'Compartir seguimiento'}</button>
+        {contacts.length ? <><label htmlFor="monitor-contact">Persona vinculada</label><select id="monitor-contact" value={selected} disabled={sending} onChange={event => setSelected(event.target.value)}><option value="">Selecciona una persona</option>{contacts.map(contact => <option key={contact.id_tutor} value={contact.id_tutor}>{contact.nombre_completo} · {contact.relacion}</option>)}</select>
+          <button className="secondary full" disabled={!selected || sharing || sending} onClick={() => void share()}>{sharing ? 'Preparando enlace…' : 'Compartir seguimiento'}</button>
+          <button className="secondary full" disabled={!selected || sharing || sending} onClick={() => void sendTelegram()}>{sending ? 'Enviando...' : 'Enviar por Telegram'}</button>
         </> : <p>No hay personas de confianza vinculadas disponibles.</p>}
       </>}
       {error && <p className="notice" role="alert">{error} <button className="text-button" disabled={loading} onClick={() => setAttempt(value => value + 1)}>Volver a consultar personas</button></p>}
+      {telegramMessage && <p className="success" role="status">{telegramMessage}</p>}
       {link && <div className="monitor-link"><label htmlFor="monitor-link">Enlace temporal</label><input id="monitor-link" value={link} readOnly onFocus={event => event.target.select()}/><button className="secondary full" onClick={() => void copy()}>Copiar enlace</button>{copied && <p className="success" role="status">Enlace copiado.</p>}</div>}
     </div>
   </details>
