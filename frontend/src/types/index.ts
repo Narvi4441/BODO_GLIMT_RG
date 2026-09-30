@@ -18,3 +18,11 @@ export interface User { id_usuario: number; nombre_completo: string; email: stri
 export interface LoginResult { success: boolean; access_token: string; token_type: 'bearer'; user: User }
 export interface Tutor { nombre_completo: string; telefono: string; email: string; relacion: string }
 export interface Registration { nombre_completo: string; telefono: string; email: string; password: string; confirm_password: string; tutor: Tutor }
+
+export interface Coordinate { lat: number; lng: number }
+export interface Destination extends Coordinate { name: string; address: string }
+export interface RoutePlan {
+  origin: Coordinate; destination: Coordinate;
+  destinationName: string; destinationAddress: string;
+  distance_m: number; duration_s: number; path: Coordinate[];
+}

@@ -1,4 +1,4 @@
-import type { AckStatus, Journey, LoginResult, Registration, Telemetry, TelemetryResult, User } from '../types'
+import type { AckStatus, Coordinate, Journey, LoginResult, Registration, RoutePlan, Telemetry, TelemetryResult, User } from '../types'
 
 export const ACCESS_TOKEN_KEY = 'guardian_access_token'
 
@@ -36,6 +36,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
+  planRoute: (origin: Coordinate, destination: Coordinate) => request<Omit<RoutePlan, 'destinationName' | 'destinationAddress'>>('/api/routes/plan', { origin, destination }),
   start: (user_id: string) => request<Journey>('/api/journeys/start', { user_id }),
   journey: (id: string) => request<Journey>(`/api/journeys/${encodeURIComponent(id)}`),
   stop: (id: string) => request<Journey>(`/api/journeys/${encodeURIComponent(id)}/stop`, {}),
