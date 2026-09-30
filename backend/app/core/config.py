@@ -12,6 +12,8 @@ class Config:
     # Conexión a Redis
     REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT = int(os.getenv("REDIS_PORT", "6380"))
+    REDIS_URL = os.getenv("REDIS_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
+    TELEMETRY_OFFLINE_TIMEOUT_SECONDS = max(1, int(os.getenv("TELEMETRY_OFFLINE_TIMEOUT_SECONDS", "15")))
     
     # Aquí va la llave
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")

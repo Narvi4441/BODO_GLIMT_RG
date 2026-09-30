@@ -104,12 +104,20 @@ def test_sql_values_are_not_executed(client, database, payload):
     assert counts(database) == (1, 1, 1)
 
 
-def test_existing_journey_and_telemetry(client):
-    journey = client.post("/api/journeys/start", json={"user_id": "legacy-demo"}).json()
-    with client.websocket_connect('/ws/journeys/' + journey["journey_id"]) as ws:
-        response = client.post("/api/telemetry", json={
-            "journey_id": journey["journey_id"], "user_id": "legacy-demo",
-            "latitude": 19.43, "longitude": -99.13,
-        })
-        assert response.status_code == 200
-        assert ws.receive_json()["type"] == "telemetry"
+def test_existing_journey_and_telemetry():
+    # Persistence no longer lives in RAM. Never point the old mock journey test
+    # at DATABASE_URL or manufacture GPS to satisfy an integration test.
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    capture = os.getenv("REAL_TELEMETRY_FILE")
+    database_url = os.getenv("TEST_DATABASE_URL")
+    redis_url = os.getenv("TEST_REDIS_URL")
+    if not all((capture, database_url, redis_url)):
+        pytest.skip("Requires REAL_TELEMETRY_FILE, migrated TEST_DATABASE_URL and dedicated TEST_REDIS_URL")
+    root = Path(__file__).resolve().parents[2]
+    subprocess.run([sys.executable, str(root / "scripts/verify_persistence.py"),
+                    "--telemetry-file", capture], cwd=root, check=True,
+                   env={**os.environ, "DATABASE_URL": database_url, "REDIS_URL": redis_url})

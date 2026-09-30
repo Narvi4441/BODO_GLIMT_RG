@@ -2,13 +2,15 @@ from sqlalchemy import text, create_engine
 from app.core.config import Config
 import redis
 import requests
+from app.core.cache import get_redis
+from app.core.database import get_engine
 
 def probar_conexiones():
     print("--- INICIANDO DIAGNÓSTICO DEL SISTEMA GUARDIÁN ---\n")
 
     # 1. Prueba PostgreSQL (Conexión directa)
     try:
-        engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+        engine = get_engine()
         with engine.connect() as conexion:
             conexion.execute(text("SELECT 1"))
         print("✅ PostgreSQL: Conexión exitosa a la base de datos.")
@@ -17,10 +19,10 @@ def probar_conexiones():
 
     # 2. Prueba Redis
     try:
-        r = redis.Redis(host=Config.REDIS_HOST, port=Config.REDIS_PORT, db=0)
+        r = get_redis()
         if r.ping():
-            print(f"✅ Redis: Conexión exitosa (Puerto {Config.REDIS_PORT}).")
-            total_camaras = r.zcard("acompanamiento:cdmx:c5")
+            print("✅ Redis: Conexión exitosa mediante REDIS_URL.")
+            total_camaras = r.zcard("guardian:c5:geo")
             print(f"   -> Nodos C5 indexados en memoria: {total_camaras}")
     except Exception as e:
         print(f"❌ Redis Error: El contenedor no está respondiendo.\nDetalle: {e}")

@@ -12,3 +12,5 @@ redis>=5,<8
 requests>=2.32,<3
 polyline>=2,<3
 shapely>=2,<3
+# El archivo oficial C5 vigente se distribuye como XLSX.
+openpyxl>=3.1,<4

@@ -15,12 +15,12 @@ router = APIRouter(
 
 
 @router.post("/start")
-async def start(request: StartJourneyRequest):
+def start(request: StartJourneyRequest):
     return start_journey(request.user_id)
 
 
 @router.post("/{journey_id}/stop")
-async def stop(journey_id: str):
+def stop(journey_id: str):
     journey = stop_journey(journey_id)
 
     if not journey:
@@ -33,7 +33,7 @@ async def stop(journey_id: str):
 
 
 @router.get("/{journey_id}")
-async def status(journey_id: str):
+def status(journey_id: str):
     journey = get_journey(journey_id)
 
     if not journey:
