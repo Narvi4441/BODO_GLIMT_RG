@@ -44,10 +44,6 @@ class FrontendFiles(StaticFiles):
         return response
 
 
-app.mount("/ui", FrontendFiles(
-    directory=Path(__file__).resolve().parents[2] / "frontend", html=True
-), name="frontend")
-
 
 @app.get("/")
 async def root():
