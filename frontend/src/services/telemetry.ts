@@ -48,11 +48,11 @@ export class TelemetryController {
   snapshot = () => this.state
   private update(patch: Partial<JourneyState>) {
     this.state = { ...this.state, ...patch }
-    this.state.network = !navigator.onLine ? 'OFFLINE' : !this.httpHealthy || (this.state.acquiring && !this.state.wsConnected) ? 'DEGRADED' : 'ONLINE'
+    this.state.network = !navigator.onLine ? 'OFFLINE' : !this.httpHealthy || (this.state.journey?.status === 'ACTIVE' && !this.stopped && !this.state.stopPending && !this.state.wsConnected) ? 'DEGRADED' : 'ONLINE'
     this.listeners.forEach(listener => listener())
   }
   private networkChanged = () => { this.update({}); if (navigator.onLine) void this.sync() }
-  private leave = () => { this.pauseAcquisition(); this.socket?.close() }
+  private leave = () => { this.pauseAcquisition(); this.socket?.close(); this.socket = undefined }
 
   async initialize() {
     if (this.initialized) return
@@ -92,16 +92,25 @@ export class TelemetryController {
 
   async resume() {
     const saved = this.state.journey
-    if (!saved || this.state.stopPending || this.state.busy) return
+    if (!saved || saved.status !== 'ACTIVE' || this.stopped || this.state.stopPending || this.state.busy || this.state.acquiring) return
     this.update({ busy: true, error: '' })
+    this.capturesStopped = false
     try {
+      // Esperar la lectura anterior; acquiring sigue en false y descarta su resultado.
+      await this.sampling
       if (navigator.onLine) {
         const remote = await api.journey(saved.journey_id)
         if (remote.status !== 'ACTIVE') throw new Error('El backend ya cerró este trayecto. Los datos pendientes se conservan.')
       }
+      if (this.capturesStopped) return
       const position = await gpsPosition()
-      this.capturesStopped = false
-      this.activate()
+      if (this.capturesStopped) return
+      // Tras una recarga todavía no existe conexión; una pausa conserva la actual.
+      if (!this.socket) this.activate()
+      else {
+        this.update({ acquiring: true, gpsError: '' })
+        this.setIntervalSeconds(this.state.interval)
+      }
       await this.storePosition(position)
     } catch (error) { this.update({ error: this.message(error) }) }
     finally { this.update({ busy: false }) }
@@ -110,12 +119,12 @@ export class TelemetryController {
   private activate() {
     this.stopped = false
     this.update({ acquiring: true, gpsError: '' })
-    this.socket?.close()
-    this.socket = new JourneySocket(this.state.journey!.journey_id, this.realtime, connected => this.update({ wsConnected: connected }))
+    this.socket ??= new JourneySocket(this.state.journey!.journey_id, this.realtime, connected => this.update({ wsConnected: connected }))
     this.setIntervalSeconds(this.state.interval)
   }
   private setIntervalSeconds(seconds: number) {
     clearInterval(this.timer)
+    this.timer = undefined
     this.update({ interval: seconds })
     if (this.state.acquiring) this.timer = setInterval(() => void this.sample(), seconds * 1000)
   }
@@ -162,9 +171,10 @@ export class TelemetryController {
     try { this.update({ pending: await offline.count() + this.unsaved.length }) }
     catch { this.update({ storageError: 'No se puede leer el almacenamiento local.' }) }
   }
-  private pauseAcquisition() {
+  pauseAcquisition() {
     this.capturesStopped = true
     clearInterval(this.timer)
+    this.timer = undefined
     this.update({ acquiring: false })
   }
 
@@ -172,6 +182,7 @@ export class TelemetryController {
     if (!this.state.journey || this.state.busy) return
     this.pauseAcquisition()
     this.socket?.close()
+    this.socket = undefined
     this.stopped = true
     this.update({ busy: true, stopPending: true, wsConnected: false, point: null, risk: null, emergency: false, checkIn: null, latency: null, lastSent: null })
     try {
@@ -257,7 +268,7 @@ export class TelemetryController {
     void this.sync()
   }
   private async command(command: Command) {
-    if (!this.state.acquiring || this.stopped || command.journey_id !== this.state.journey?.journey_id || command.user_id !== this.state.journey.user_id || this.handling.has(command.command_id)) return
+    if (this.state.journey?.status !== 'ACTIVE' || this.stopped || this.state.stopPending || command.journey_id !== this.state.journey.journey_id || command.user_id !== this.state.journey.user_id || this.handling.has(command.command_id)) return
     this.handling.set(command.command_id, 'RECEIVED')
     await this.ack(command.command_id, 'RECEIVED', `${command.action} recibido por la PWA.`)
     if (this.stopped) return
@@ -285,6 +296,12 @@ export class TelemetryController {
     if (!ok) { this.update({ emergency: true }); this.setIntervalSeconds(1) }
     await this.ack(command.command_id, 'EXECUTED', ok ? 'El usuario respondió: Estoy bien.' : 'El usuario respondió: Necesito ayuda. Modo local de emergencia activado.')
   }
+  async failCheckIn(message: string) {
+    const command = this.state.checkIn
+    if (!command) return
+    this.update({ checkIn: null })
+    await this.ack(command.command_id, 'FAILED', message)
+  }
   async downloadPending() {
     const data = [...await offline.all(), ...this.unsaved]
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
@@ -293,7 +310,7 @@ export class TelemetryController {
   }
   private message(error: unknown) { return error instanceof Error ? error.message : 'No se pudo completar la operación.' }
   dispose() {
-    this.pauseAcquisition(); this.socket?.close(); clearInterval(this.retry)
+    this.pauseAcquisition(); this.socket?.close(); this.socket = undefined; clearInterval(this.retry)
     window.removeEventListener('online', this.networkChanged); window.removeEventListener('offline', this.networkChanged); window.removeEventListener('pagehide', this.leave)
   }
 }
