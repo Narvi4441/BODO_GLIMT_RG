@@ -191,28 +191,57 @@ function GuardianApp() {
 
   function activateDemo() {
     if (!routePlan?.path.length || s.busy || s.stopPending || !s.acquiring) return
-    if (!window.confirm('El modo demo sustituirá temporalmente la posición GPS enviada durante la demostración.')) return
+
+    if (
+      !window.confirm(
+        'El modo demo sustituirá temporalmente la posición GPS enviada durante la demostración.'
+      )
+    ) return
+
     guardian.setDemoMode(true)
+
     const startPosition = currentPosition ?? routePlan.path[0]
     const along = distanceAlongRoute(startPosition, routePlan.path)
-    demoPath.current = routeRemainder(routePlan.path, along)
-    // Conservar la posición de partida. Si está fuera de ruta, pedir reincorporación WALK.
-    const needsReturn = distanceMeters(startPosition, demoPath.current[0]) > 3
-    demoPath.current = needsReturn ? [startPosition] : [startPosition, ...demoPath.current]
-    const value: DemoState = { distance: 0, moving: false, gpsAvailable: true, offset: 0 }
+    const remainingPath = routeRemainder(routePlan.path, along)
+
+    demoPath.current =
+      remainingPath.length >= 2
+        ? remainingPath
+        : routePlan.path
+
+    const value: DemoState = {
+      distance: 0,
+      moving: false,
+      gpsAvailable: true,
+      offset: 0,
+      planning: false,
+      routeError: '',
+    }
+
     demoRef.current = value
     setDemo(value)
+
     lastDemoTick.current = Date.now()
     lastDemoSend.current = 0
-    if (needsReturn) void planDemo(0)
   }
+
   function changeDemo(patch: Partial<DemoState>) {
     if (!demoRef.current) return
-    if (patch.offset !== undefined) { void planDemo(patch.offset); return }
-    const value = { ...demoRef.current, ...patch }
+
+    if (patch.offset !== undefined) {
+      void planDemo(patch.offset)
+      return
+    }
+
+    const value = {
+      ...demoRef.current,
+      ...patch,
+    }
+
     demoRef.current = value
     setDemo(value)
   }
+
   function exitDemo(resume = true) {
     demoVersion.current++
     demoPlanning.current = false
@@ -220,54 +249,202 @@ function GuardianApp() {
     setDemo(null)
     demoPath.current = []
     lastDemoTick.current = 0
+
     guardian.setDemoMode(false)
-    if (resume) void guardian.resume()
+
+    if (resume) {
+      void guardian.resume()
+    }
   }
+
   async function planDemo(offset: 0 | 150 | 350) {
     const value = demoRef.current
-    if (!value || !routePlan || demoPlanning.current || !value.gpsAvailable) return
-    const position = routePoint(demoPath.current, value.distance)?.point
+
+    if (
+      !value ||
+      !routePlan ||
+      demoPlanning.current ||
+      !value.gpsAvailable
+    ) return
+
+    const position =
+      routePoint(demoPath.current, value.distance)?.point
+
     if (!position) return
+
     const version = ++demoVersion.current
+
     demoPlanning.current = true
-    changeDemo({ moving: false, planning: true, routeError: '' })
+
+    changeDemo({
+      moving: false,
+      planning: true,
+      routeError: '',
+    })
+
     try {
       let nextPath: Coordinate[] | null = null
-      const along = distanceAlongRoute(position, routePlan.path)
-      const validate = (path: Coordinate[]) => path.length >= 2 && path.every(validCoordinate) && distanceMeters(position, path[0]) <= 15
+
+      const along =
+        distanceAlongRoute(position, routePlan.path)
+
+      const validate = (path: Coordinate[]) =>
+        path.length >= 2 &&
+        path.every(validCoordinate) &&
+        distanceMeters(position, path[0]) <= 15
+
+      /*
+       * REGRESAR A RUTA
+       */
       if (offset === 0) {
-        const rejoin = Math.min(pathLength(routePlan.path), along + 60)
-        const target = routePoint(routePlan.path, rejoin)!.point
-        const result = await api.planRoute(position, target)
-        if (validate(result.path) && distanceMeters(result.path.at(-1)!, target) <= 15) {
-          nextPath = [position, ...result.path, ...routeRemainder(routePlan.path, rejoin)]
-        }
-      } else {
-        const base = routePoint(routePlan.path, along)!
-        for (const side of [-90, 90]) {
-          const waypoint = offsetPoint(base.point, offset, base.bearing + side)
-          try {
-            const result = await api.planRoute(position, routePlan.destination, waypoint)
-            const separation = Math.max(...result.path.map(point => routeDeviation(point, routePlan.path) ?? 0))
-            if (validate(result.path) && separation >= (offset === 350 ? 301 : 110) && separation <= offset * 1.6) {
-              nextPath = [position, ...result.path]
-              break
-            }
-          } catch { /* Probar solamente la perpendicular opuesta; nunca fabricar geometría. */ }
-          if (version !== demoVersion.current) return
+        const rejoin = Math.min(
+          pathLength(routePlan.path),
+          along + 60
+        )
+
+        const target =
+          routePoint(routePlan.path, rejoin)?.point
+
+        if (target) {
+          const result = await api.planRoute(
+            position,
+            target
+          )
+
+          if (
+            validate(result.path) &&
+            distanceMeters(
+              result.path.at(-1)!,
+              target
+            ) <= 15
+          ) {
+            nextPath = [
+              position,
+              ...result.path,
+              ...routeRemainder(
+                routePlan.path,
+                rejoin
+              ),
+            ]
+          }
         }
       }
-      if (version !== demoVersion.current || !demoRef.current) return
-      if (!nextPath) throw new Error('No se encontró un recorrido peatonal válido para este escenario.')
+
+      /*
+       * DESVÍO MODERADO / SEVERO
+       */
+      else {
+        const base =
+          routePoint(routePlan.path, along)
+
+        if (base) {
+          for (const side of [-90, 90]) {
+            const waypoint = offsetPoint(
+              base.point,
+              offset,
+              base.bearing + side
+            )
+
+            try {
+              const result =
+                await api.planRoute(
+                  position,
+                  routePlan.destination,
+                  waypoint
+                )
+
+              const separation = Math.max(
+                ...result.path.map(
+                  point =>
+                    routeDeviation(
+                      point,
+                      routePlan.path
+                    ) ?? 0
+                )
+              )
+
+              const minimumSeparation =
+                offset === 350 ? 301 : 110
+
+              const maximumSeparation =
+                offset * 1.6
+
+              if (
+                validate(result.path) &&
+                separation >= minimumSeparation &&
+                separation <= maximumSeparation
+              ) {
+                nextPath = [
+                  position,
+                  ...result.path,
+                ]
+
+                break
+              }
+            } catch {
+              // Probar el lado perpendicular opuesto.
+              // Nunca fabricar una trayectoria sintética.
+            }
+
+            if (
+              version !== demoVersion.current
+            ) return
+          }
+        }
+      }
+
+      if (
+        version !== demoVersion.current ||
+        !demoRef.current
+      ) return
+
+      if (!nextPath) {
+        throw new Error(
+          'No se encontró un recorrido peatonal válido.'
+        )
+      }
+
+      /*
+       * SOLO reemplazamos el path si Google encontró
+       * una ruta peatonal válida.
+       */
       demoPath.current = nextPath
-      const next = { ...demoRef.current, distance: 0, offset, planning: false, routeError: '', moving: demoRef.current.gpsAvailable }
+
+      const next: DemoState = {
+        ...demoRef.current,
+        distance: 0,
+        offset,
+        planning: false,
+        routeError: '',
+        moving: demoRef.current.gpsAvailable,
+      }
+
       demoRef.current = next
       setDemo(next)
+
       lastDemoTick.current = Date.now()
     } catch {
-      if (version === demoVersion.current && demoRef.current) changeDemo({ planning: false, routeError: 'No se encontró una ruta peatonal para este escenario. Puedes reintentar o continuar.' })
+      /*
+       * IMPORTANTE:
+       * Si falla el desvío/reincorporación,
+       * NO borrar demoPath.current.
+       * Se conserva la ruta que ya estaba funcionando.
+       */
+      if (
+        version === demoVersion.current &&
+        demoRef.current
+      ) {
+        changeDemo({
+          planning: false,
+          moving: value.moving,
+          routeError:
+            'No se encontró una ruta peatonal alternativa. Puedes continuar por la ruta actual.',
+        })
+      }
     } finally {
-      if (version === demoVersion.current) demoPlanning.current = false
+      if (version === demoVersion.current) {
+        demoPlanning.current = false
+      }
     }
   }
   useEffect(() => {
