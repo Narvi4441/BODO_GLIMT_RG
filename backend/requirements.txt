@@ -1,0 +1,14 @@
+# Versiones de FastAPI/Pydantic/Uvicorn ya presentes en el entorno del proyecto.
+fastapi==0.142.0
+pydantic==2.13.5
+uvicorn[standard]==0.54.0
+python-dotenv==1.2.3
+SQLAlchemy==2.0.54
+psycopg2-binary==2.9.13
+argon2-cffi==25.1.0
+email-validator==2.3.0
+# Integraciones existentes (C5, rutas y diagnóstico).
+redis>=5,<8
+requests>=2.32,<3
+polyline>=2,<3
+shapely>=2,<3
