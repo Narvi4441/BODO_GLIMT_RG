@@ -10,7 +10,7 @@ class GoogleMapsIntegration:
         self.routes_url = "https://routes.googleapis.com/directions/v2:computeRoutes"
         self.matrix_url = "https://maps.googleapis.com/maps/api/distancematrix/json"
 
-    def plan_route(self, origin, destination):
+    def plan_route(self, origin, destination, waypoint=None):
         if not self.api_key:
             raise ValueError("Routes unavailable")
         response = requests.post(
@@ -23,8 +23,9 @@ class GoogleMapsIntegration:
             json={
                 "origin": {"location": {"latLng": {"latitude": origin["lat"], "longitude": origin["lng"]}}},
                 "destination": {"location": {"latLng": {"latitude": destination["lat"], "longitude": destination["lng"]}}},
-                "travelMode": "DRIVE",
-                "routingPreference": "TRAFFIC_AWARE",
+                "travelMode": "WALK",
+                **({"intermediates": [{"location": {"latLng": {
+                    "latitude": waypoint["lat"], "longitude": waypoint["lng"]}}}]} if waypoint else {}),
             },
             timeout=8,
             allow_redirects=False,

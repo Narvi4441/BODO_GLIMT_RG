@@ -1,5 +1,6 @@
 from math import isfinite
 import os
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -11,10 +12,12 @@ from app.api.routes import Coordinates
 from app.core.database import DatabaseNotConfigured, get_engine
 from app.services.auth_repository import find_tutors
 from app.services.journey_state import get_journey
-from app.services.monitor_state import get_or_create_access, get_access
-from app.services.risk_state import get_last_risk_status
+from app.services.monitor_state import get_or_create_access, get_access, journey_access, remember_name, critical_transition
+from app.services.risk_state import get_last_risk_status, set_risk_status
+from app.services.risk import mark_panic, panic_active
+from app.services.command_state import get_command, commands
 from app.services.telemetry_repository import get_latest_telemetry
-from app.services.telegram_service import TelegramDeliveryError, send_monitor_link
+from app.services.telegram_service import TelegramDeliveryError, send_monitor_link, send_alert
 
 
 class MonitorRoute(AuthRoute):
@@ -61,7 +64,9 @@ class AccessRequest(BaseModel):
 class TelegramRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     journey_id: str = Field(min_length=1, max_length=36)
-    tutor_id: int = Field(strict=True, gt=0)
+    tutor_id: int | None = Field(default=None, strict=True, gt=0)
+    alert: Literal["PANIC"] | None = None
+    command_id: str | None = Field(default=None, min_length=1, max_length=36)
 
 
 @router.get("/contacts")
@@ -86,6 +91,7 @@ def _validated_access(journey_id: str, tutor_id: int, user: dict,
     token = get_or_create_access(journey_id, user_id, tutor_id, destination, planned_path)
     if token is None:
         raise HTTPException(410, "Seguimiento no disponible")
+    remember_name(token, user.get("nombre_completo"))
     return token
 
 
@@ -99,7 +105,35 @@ def access(request: AccessRequest, user: dict = Depends(me)):
 
 @router.post("/send-telegram")
 def send_telegram(request: TelegramRequest, user: dict = Depends(me)):
-    token = _validated_access(request.journey_id, request.tutor_id, user)
+    tutor_id = request.tutor_id
+    new_panic = False
+    if request.alert == "PANIC":
+        journey = get_journey(request.journey_id)
+        if not journey or journey["status"] != "ACTIVE":
+            raise HTTPException(410, "Seguimiento no disponible")
+        if journey["user_id"] != str(user["id_usuario"]):
+            raise HTTPException(403, "No puedes compartir este recorrido.")
+        command = get_command(request.command_id) if request.command_id else next((item for item in reversed(list(commands.values()))
+            if item["journey_id"] == request.journey_id and item["user_id"] == str(user["id_usuario"])
+            and item["action"] == "EMERGENCY_MODE" and item["status"] != "FAILED"), None)
+        if (not command or command["journey_id"] != request.journey_id
+                or command["user_id"] != str(user["id_usuario"])
+                or command["action"] != "EMERGENCY_MODE" or command["status"] == "FAILED"):
+            raise HTTPException(422, "No se pudo confirmar la solicitud de ayuda.")
+        new_panic = mark_panic(request.journey_id)
+        set_risk_status(request.journey_id, "CRITICAL")
+        critical_transition(request.journey_id, "CRITICAL", "USER_REQUESTED_HELP")
+        if tutor_id is None:
+            existing = journey_access(request.journey_id, str(user["id_usuario"]))
+            if existing:
+                tutor_id = existing[1]["tutor_id"]
+            else:
+                with get_engine().connect() as connection:
+                    tutors = find_tutors(connection, user["id_usuario"])
+                tutor_id = tutors[0]["id_tutor"] if tutors else None
+    if tutor_id is None:
+        raise HTTPException(422, "Selecciona una persona de confianza vinculada.")
+    token = _validated_access(request.journey_id, tutor_id, user)
     current_access = get_access(token)
     if current_access is None:
         raise HTTPException(410, "Seguimiento no disponible")
@@ -109,8 +143,13 @@ def send_telegram(request: TelegramRequest, user: dict = Depends(me)):
     monitor_url = frontend_url + "/?monitor=" + token
     destination = current_access["destination"]
     try:
-        send_monitor_link(monitor_url=monitor_url,
-                          destination=destination.get("name") if destination else None)
+        if request.alert == "PANIC":
+            if not new_panic:
+                return {"ok": True, "sent": False, "monitor_url": monitor_url}
+            send_alert(monitor_url, user.get("nombre_completo"), "USER_REQUESTED_HELP", panic=True)
+        else:
+            send_monitor_link(monitor_url=monitor_url,
+                              destination=destination.get("name") if destination else None)
     except TelegramDeliveryError:
         raise HTTPException(502, "No se pudo enviar el enlace por Telegram.") from None
     return {"ok": True, "sent": True, "monitor_url": monitor_url}
@@ -126,6 +165,7 @@ def monitor(token: str):
     # Un cierre durante la consulta SQL tampoco debe devolver la última ubicación.
     if get_access(token) is None:
         raise HTTPException(410, "Seguimiento no disponible")
+    panic = panic_active(access["journey_id"])
     lat, lng = payload.get("latitude"), payload.get("longitude")
     position = None
     if (isinstance(lat, (int, float)) and isinstance(lng, (int, float))
@@ -136,8 +176,8 @@ def monitor(token: str):
         "destination": access["destination"],
         "planned_path": access["planned_path"],
         "current_position": position,
-        "risk_score": latest["risk_score"] if latest else None,
-        "risk_status": latest["risk_status"] if latest else get_last_risk_status(access["journey_id"]),
+        "risk_score": max(75, latest["risk_score"] or 0) if panic and latest else 75 if panic else latest["risk_score"] if latest else None,
+        "risk_status": "CRITICAL" if panic else latest["risk_status"] if latest else get_last_risk_status(access["journey_id"]),
         "route_deviation_m": payload.get("route_deviation_m"),
         "network_status": payload.get("network_status"),
         "updated_at": payload.get("timestamp") or (latest["received_at"] if latest else None),

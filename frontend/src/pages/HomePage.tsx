@@ -25,7 +25,7 @@ export function HomePage({ state, user, origin, destination, routePlan, planning
   const gpsRequest = useRef(0)
   useEffect(() => () => { gpsRequest.current++ }, [])
   function locate() {
-    if (!user || gpsBusy || state.busy) return
+    if (gpsBusy || state.busy) return
     onOriginChange(null)
     setGpsError('')
     if (!window.isSecureContext || !navigator.geolocation) {
@@ -61,10 +61,10 @@ export function HomePage({ state, user, origin, destination, routePlan, planning
 
     <section className="planning-card" aria-label="Planificar acompañamiento">
       <h2>¿A dónde vas?</h2>
-      <DestinationSearch onChange={onDestinationChange} onReady={onPlacesReady} disabled={!user || state.busy}/>
+      <DestinationSearch onChange={onDestinationChange} onReady={onPlacesReady} disabled={state.busy}/>
       <div className="planning-location">
         <div className="location-summary"><span className="eyebrow">SALIDA</span><p>{origin ? 'Tu ubicación actual' : 'Obtén tu ubicación para calcular la ruta'}</p></div>
-        <button className="text-button" onClick={locate} disabled={!user || gpsBusy || state.busy}>{gpsBusy ? 'Obteniendo ubicación…' : origin ? 'Actualizar ubicación' : 'Usar mi ubicación'}</button>
+        <button className="text-button" onClick={locate} disabled={gpsBusy || state.busy}>{gpsBusy ? 'Obteniendo ubicación…' : origin ? 'Actualizar ubicación' : 'Usar mi ubicación'}</button>
         {origin && <details className="origin-details"><summary>Coordenadas de origen</summary><p className="muted">{origin.lat.toFixed(6)}, {origin.lng.toFixed(6)}</p></details>}
         {gpsError && <p className="notice" role="alert">{gpsError}</p>}
       </div>
@@ -76,10 +76,10 @@ export function HomePage({ state, user, origin, destination, routePlan, planning
     <section className="route-summary" aria-live="polite">
       {routePlan ? <><span className="eyebrow">DESTINO</span><h2>{routePlan.destinationName}</h2><p className="muted">{routePlan.destinationAddress}</p>
         <div className="route-metrics"><div><span>Distancia</span><strong>{routePlan.distance_m < 1000 ? Math.round(routePlan.distance_m) + ' m' : (routePlan.distance_m / 1000).toFixed(1) + ' km'}</strong></div><div><span>Tiempo estimado</span><strong>{Math.ceil(routePlan.duration_s / 60)} min <small>aprox.</small></strong></div></div>
-        <p className="planning-hint">Ruta en automóvil. La estimación corresponde al momento del cálculo.</p>
+        <p className="planning-hint">Ruta a pie. La estimación corresponde al momento del cálculo.</p>
       </> : <p className="muted planning-empty">Obtén tu ubicación, selecciona un destino y calcula la ruta para comenzar.</p>}
       <div className="route-actions"><button className="primary full" disabled={!canStart || gpsBusy} onClick={start}>{state.busy ? 'Obteniendo GPS e iniciando…' : 'Iniciar acompañamiento'}</button></div>
-      <p className="planning-hint">{!user ? 'Inicia sesión para preparar tu recorrido.' : 'Al iniciar se confirma tu GPS y comienza el seguimiento del recorrido.'}</p>
+      <p className="planning-hint">{!user ? 'Puedes planificar sin sesión. Para iniciar el acompañamiento debes identificarte.' : 'Al iniciar se confirma tu GPS y comienza el seguimiento del recorrido.'}</p>
     </section>
     <details className="disclosure evidence-history"><summary>Recorridos guardados <span className="summary-hint">24 horas</span></summary><div className="disclosure-body"><p>Evidencia temporal local. Se elimina al vencer su vigencia cuando la aplicación vuelve a acceder al almacenamiento.</p>
       {!savedRoutes.length && <p className="muted">No hay instantáneas vigentes.</p>}
@@ -94,7 +94,7 @@ export function HomePage({ state, user, origin, destination, routePlan, planning
         <JourneyMap destination={selected.destination} origin={selected.planned_path[0]} currentPosition={selected.actual_trace.at(-1)} plannedPath={selected.planned_path} actualTrace={selected.actual_trace}/>
         <p>Inicio de traza: {selected.actual_trace[0] ? new Date(selected.actual_trace[0].timestamp).toLocaleString('es-MX') : 'Sin puntos'}<br/>Guardado: {new Date(selected.saved_at).toLocaleString('es-MX')}<br/>Vence: {new Date(selected.expires_at).toLocaleString('es-MX')}</p>
         <p>Máximo: {selected.max_risk_status ?? 'Sin datos'} · {selected.max_risk_score ?? '—'}. Desviaciones: {selected.deviation_events.length}.</p>
-        <p>Turquesa: ruta planeada. Violeta: traza {selected.actual_trace.some(point => point.source === 'DEMO') ? 'con SIMULACIÓN' : 'real'}.</p>
+        <p>Azul: ruta planeada. Turquesa: trayectoria. Ámbar: desviación mayor de 40 m. {selected.actual_trace.some(point => point.source === 'DEMO') ? 'Contiene SIMULACIÓN.' : 'Trayectoria real.'}</p>
         <details><summary>Desviaciones registradas</summary><ul>{selected.deviation_events.map((event, i) => <li key={i}>{new Date(event.timestamp).toLocaleTimeString('es-MX')} · {Math.round(event.distance_m)} m · {event.source}</li>)}</ul></details>
         {selected.incident_note && <p>{selected.incident_note}</p>}
         <button className="text-button" onClick={() => setSelectedId(null)}>Cerrar evidencia</button>
@@ -102,7 +102,7 @@ export function HomePage({ state, user, origin, destination, routePlan, planning
     </div></details>
 
     <section className="planner-identity" aria-label="Cuenta">
-      <span>{user ? user.nombre_completo : 'Inicia sesión para planificar'}</span><button className="text-button" onClick={account} disabled={state.busy}>{user ? 'Mi cuenta' : 'Acceder'}</button>
+      <span>{user ? user.nombre_completo : 'Tu cuenta GUARDIAN'}</span><button className={user ? 'text-button' : 'primary login-visible'} onClick={account} disabled={state.busy}>{user ? 'Mi cuenta' : 'Iniciar sesión'}</button>
     </section>
     <p className="footnote">Mantén GUARDIAN visible durante el recorrido. El teléfono puede suspender el GPS en segundo plano.</p>
   </div>

@@ -198,6 +198,26 @@ dialog { max-height: calc(100dvh - 40px); overflow-y: auto; }
   .system-line { font-size: 9px; }
 }
 
+/* Ajustes de estabilidad y accesibilidad, sin cambiar la jerarquía existente. */
+.app-shell > header { gap: 8px; }
+.login-visible { min-height: 44px; padding: 10px 12px; font-size: 12px; white-space: normal; }
+.theme { flex-shrink: 0; }
+.map-recenter { width: auto; right: auto; left: 12px; padding: 8px 12px; font-size: 12px; }
+.map-popup { position: absolute; z-index: 2; bottom: 10px; left: 10px; width: min(260px, calc(100% - 64px)); max-height: 60%; overflow: auto; padding: 12px; border-radius: 12px; background: var(--panel); color: inherit; box-shadow: 0 4px 16px #0006; overflow-wrap: anywhere; }
+.map-popup > button { display: block; margin-left: auto; }
+.map-popup p { font-size: 12px; margin: 6px 0; }
+.map-dot { background: #4285f4; }
+.map-dot.trace { background: #12bfa3; }
+.map-dot.deviation { background: #ffae42; }
+.map-pin-camera:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+dialog .secondary { margin-top: 12px; min-height: 48px; }
+@media (max-width: 359px) {
+  .app-shell > header { padding-left: 12px; padding-right: 12px; }
+  .brand { font-size: 15px; gap: 6px; }
+  .brand img { width: 25px; }
+  .login-visible { font-size: 11px; padding: 8px; }
+}
+
 /* Jerarquía móvil: mapa y acciones primero; información secundaria en flujo normal. */
 .monitor-sharing .disclosure-body > p { font-size: 12px; }
 .monitor-sharing select { display: block; width: 100%; min-width: 0; min-height: 48px; margin: 8px 0 14px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--input); color: inherit; font: inherit; font-size: 14px; }

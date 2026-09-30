@@ -29,11 +29,13 @@ export interface RoutePlan {
 export interface TracePoint extends Coordinate { source: 'REAL' | 'DEMO'; timestamp: string }
 export interface SafetyCamera extends Coordinate {
   id: string; hasCamera: boolean; hasHelpButton: boolean; hasSpeaker: boolean; distance_m?: number;
+  esquina?: string; colonia?: string; alcaldia?: string; poste?: string;
 }
 export interface RiskZone {
-  zone_id: string; center: Coordinate; radius_m: number; incident_count: number; severity: 'YELLOW' | 'RED';
+  zone_id: string; center: Coordinate; radius_m: number; incident_count?: number; severity: 'YELLOW' | 'RED';
+  name?: string; level?: string; reference?: boolean;
 }
-export interface DemoState { distance: number; moving: boolean; gpsAvailable: boolean; offset: 0 | 150 | 350 }
+export interface DemoState { distance: number; moving: boolean; gpsAvailable: boolean; offset: 0 | 150 | 350; planning?: boolean; routeError?: string }
 export interface DeviationEvent extends TracePoint { distance_m: number }
 export interface EvidenceSnapshot {
   journey_id: string; destination: Destination | null; planned_path: Coordinate[]; actual_trace: TracePoint[];

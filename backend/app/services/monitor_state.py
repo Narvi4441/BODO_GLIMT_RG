@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 from threading import RLock
+from time import monotonic
 
 from app.services.journey_state import get_journey
 
@@ -9,6 +10,7 @@ from app.services.journey_state import get_journey
 _accesses: dict[str, dict] = {}
 _lock = RLock()
 _lifetime = timedelta(hours=24)
+_critical: dict[str, dict] = {}
 
 
 def _active(access: dict, now: datetime) -> bool:
@@ -66,3 +68,45 @@ def get_access(token: str) -> dict | None:
             del _accesses[token]
             return None
         return access.copy()
+
+
+def journey_access(journey_id: str, user_id: str) -> tuple[str, dict] | None:
+    with _lock:
+        for token in reversed(list(_accesses)):
+            access = get_access(token)
+            if access and access["journey_id"] == journey_id and access["user_id"] == user_id:
+                return token, access
+    return None
+
+
+def remember_name(token: str, name: str | None):
+    with _lock:
+        if token in _accesses and name:
+            _accesses[token]["user_name"] = name
+
+
+def critical_transition(journey_id: str, status: str, reason: str = "") -> bool:
+    """Reservar una alerta antes de cualquier await/envío; no reintentar por tick."""
+    with _lock:
+        for key in list(_critical):
+            journey = get_journey(key)
+            if not journey or journey["status"] != "ACTIVE":
+                del _critical[key]
+        previous = _critical.get(journey_id, {})
+        armed = previous.get("armed", True)
+        stable_since = previous.get("stable_since")
+        stable_samples = previous.get("stable_samples", 0)
+        if status != "CRITICAL":
+            stable_since = stable_since if stable_since is not None else monotonic()
+            stable_samples += 1
+            if stable_samples >= 3 and monotonic() - stable_since >= 15:
+                armed = True
+        else:
+            stable_since, stable_samples = None, 0
+        changed = status == "CRITICAL" and armed
+        _critical[journey_id] = {
+            "status": status, "lastCriticalReason": reason if changed else previous.get("lastCriticalReason"),
+            "lastCriticalAlertAt": datetime.now(timezone.utc) if changed else previous.get("lastCriticalAlertAt"),
+            "armed": False if changed else armed, "stable_since": stable_since, "stable_samples": stable_samples,
+        }
+        return changed

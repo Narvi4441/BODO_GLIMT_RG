@@ -13,6 +13,8 @@ from app.services.risk_state import (
 
 from app.services.command_state import create_command
 from app.services.telemetry_repository import save_telemetry
+from app.services.monitor_state import critical_transition
+from app.services.telegram_service import notify_critical
 
 
 router = APIRouter(
@@ -62,6 +64,12 @@ async def receive_telemetry(
     data["risk_score"] = risk["score"]
     data["risk_status"] = risk["status"]
     data["risk_reasons"] = risk["reasons"]
+
+    if critical_transition(telemetry.journey_id, risk["status"], next(iter(risk["reasons"]), "")):
+        reason = ("SUDDEN_SPEED_INCREASE" if "SUDDEN_SPEED_INCREASE" in risk["reasons"]
+                  else "Significant route deviation" if telemetry.route_deviation_m and telemetry.route_deviation_m > 300
+                  else next(iter(risk["reasons"]), ""))
+        background_tasks.add_task(notify_critical, telemetry.journey_id, reason)
 
     background_tasks.add_task(save_telemetry, data.copy())
 

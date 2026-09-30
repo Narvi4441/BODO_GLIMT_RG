@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.auth import AuthRoute, me
+from app.api.auth import AuthRoute
 from app.core.config import Config
 from app.services.Google_maps_service import GoogleMapsIntegration
 
@@ -16,17 +16,19 @@ class RouteRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     origin: Coordinates
     destination: Coordinates
+    waypoint: Coordinates | None = None
 
 
 router = APIRouter(prefix="/api/routes", tags=["Routes"], route_class=AuthRoute)
 
 
 @router.post("/plan")
-def plan(request: RouteRequest, user: dict = Depends(me)):
+def plan(request: RouteRequest):
     try:
         return GoogleMapsIntegration(Config.GOOGLE_API_KEY).plan_route(
             request.origin.model_dump(mode="json"),
             request.destination.model_dump(mode="json"),
+            request.waypoint.model_dump(mode="json") if request.waypoint else None,
         )
     except Exception:
         raise HTTPException(502, "No fue posible calcular la ruta.") from None

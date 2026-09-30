@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { JourneyMap } from '../components/JourneyMap'
 import { DemoControls } from '../components/DemoControls'
-import { deviationLabel } from '../services/demoScenario'
+import { deviationLabel, riskReason } from '../services/demoScenario'
 import { api } from '../services/api'
 import type { JourneyState } from '../services/telemetry'
 import type { Coordinate, DemoState, MonitorContact, RiskZone, RoutePlan, SafetyCamera, TracePoint } from '../types'
@@ -123,9 +123,9 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
   demo: DemoState | null; activateDemo: () => void; changeDemo: (patch: Partial<DemoState>) => void; exitDemo: () => void;
   safetyCameras: SafetyCamera[]; riskZones: RiskZone[]; panic: () => void; emergencyMessage: string; emergencyRequested: boolean;
 }) {
-  const [layers, setLayers] = useState({ route: true, trace: true, cameras: false, zones: false })
+  const [layers, setLayers] = useState({ route: true, trace: true, cameras: false, zones: true })
   const point = s.point
-  const riskStatus = s.risk?.status || 'UNKNOWN'
+  const riskStatus = s.emergency ? 'CRITICAL' : s.risk?.status || 'UNKNOWN'
   return <div className="active-page">
     <div className="page-intro active-heading">
       <div><span className="eyebrow">GUARDIAN</span><h1>{s.stopPending ? 'Finalizando recorrido' : 'Recorrido activo'}</h1></div>
@@ -138,9 +138,10 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
         origin={routePlan?.origin}
         destination={routePlan?.destination}
         plannedPath={layers.route ? routePlan?.path : undefined}
+        referencePath={routePlan?.path}
         actualTrace={layers.trace ? actualTrace : undefined}
         safetyCameras={layers.cameras ? safetyCameras : undefined}
-        riskZones={demo && layers.zones ? riskZones : undefined}
+        riskZones={layers.zones ? riskZones : undefined}
       />
     </section>
 
@@ -159,15 +160,15 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
     </section>}
 
     <section className={'panel risk ' + riskStatus} aria-label="Estado de riesgo">
-      <div><span className="eyebrow">ESTADO DE RIESGO</span><h2>{s.risk?.status || 'ESPERANDO DATOS'}</h2></div>
+      <div><span className="eyebrow">ESTADO DE RIESGO</span><h2>{riskStatus === 'UNKNOWN' ? 'ESPERANDO DATOS' : riskStatus}</h2></div>
       <div className="risk-score"><strong>{s.risk?.score ?? '—'}</strong><small>SCORE / 100</small></div>
-      <p>{s.risk?.reasons[0] || 'El backend evalúa la telemetría recibida.'}</p>
-      {!!s.risk && s.risk.reasons.length > 1 && <details className="risk-explainer"><summary>Ver detalles</summary><ul>{s.risk.reasons.slice(1).map((reason, i) => <li key={i}>{reason}</li>)}</ul></details>}
-      {s.emergency && <div className="emergency-notice" role="status"><strong>MODO DE EMERGENCIA</strong><p>Frecuencia prioritaria activada. El score y el estado de riesgo mostrados siguen siendo los del backend.</p></div>}
+      <p>{s.risk?.reasons[0] ? riskReason(s.risk.reasons[0]) : 'El backend evalúa la telemetría recibida.'}</p>
+      {!!s.risk && s.risk.reasons.length > 1 && <details className="risk-explainer"><summary>Ver detalles</summary><ul>{s.risk.reasons.slice(1).map((reason, i) => <li key={i}>{riskReason(reason)}</li>)}</ul></details>}
+      {s.emergency && <div className="emergency-notice" role="status"><strong>MODO DE EMERGENCIA</strong><p>Emergencia activada por teleproceso. El score corresponde a la última evaluación recibida.</p></div>}
     </section>
 
     {!s.stopPending && <section className="sos-section" aria-label="Solicitar ayuda">
-      <button className={'panic full ' + riskStatus} disabled={emergencyRequested || s.emergency || riskStatus === 'CRITICAL'} onClick={() => { panic(); window.location.href = 'tel:911' }}>{s.emergency || riskStatus === 'CRITICAL' ? 'MODO DE EMERGENCIA ACTIVO' : emergencyRequested ? 'EMERGENCIA SOLICITADA' : 'SOS / NECESITO AYUDA'}</button>
+      <button className={'panic full ' + riskStatus} disabled={emergencyRequested} onClick={panic}>{emergencyRequested ? 'EMERGENCIA SOLICITADA' : 'SOS · Necesito ayuda'}</button>
       {emergencyMessage && <p role="status">{emergencyMessage}</p>}
       <p><a href="tel:911">Emergencias: 911</a></p><p className="muted">El marcador abre 911; confirma la llamada en tu dispositivo. No se notifica automáticamente a las autoridades.</p>
     </section>}
@@ -204,6 +205,7 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
             <div><span>Red</span><strong>{s.network}</strong></div>
           </section>
           {s.lastAck && <p className="ack" role="status">ACK · {s.lastAck}</p>}
+          {(s.error || s.storageError) && <p className="muted">{s.error || s.storageError}</p>}
           <h3>Razones de riesgo</h3><p className="muted">{s.risk?.reasons.join(' · ') || 'El backend evalúa la telemetría recibida.'}</p>
           <p className="footnote">{demo ? 'SIMULACIÓN: posición, precisión y velocidad sintéticas; riesgo, red, batería y ACK provienen del flujo existente.' : 'GPS real. Batería y velocidad pueden no estar disponibles en tu navegador. El GPS no está garantizado en segundo plano.'}</p>
         </div>
@@ -215,19 +217,20 @@ export function ActiveJourney({ state: s, routePlan, stop, resume, currentPositi
           <fieldset className="layer-options"><legend className="visually-hidden">Visibilidad de capas</legend>
             <label><input type="checkbox" checked={layers.route} onChange={event => setLayers(value => ({ ...value, route: event.target.checked }))}/>Ruta planeada <i className="map-dot"/></label>
             <label><input type="checkbox" checked={layers.trace} onChange={event => setLayers(value => ({ ...value, trace: event.target.checked }))}/>Trayectoria <i className="map-dot trace"/></label>
-            <label><input type="checkbox" checked={layers.cameras} onChange={event => setLayers(value => ({ ...value, cameras: event.target.checked }))}/>Cámara del dataset · hasta 500 m</label>
-            {demo && <label><input type="checkbox" checked={layers.zones} onChange={event => setLayers(value => ({ ...value, zones: event.target.checked }))}/>Zonas contextuales DEMO</label>}
+            <label><input type="checkbox" checked={layers.cameras} onChange={event => setLayers(value => ({ ...value, cameras: event.target.checked }))}/>{safetyCameras.length} cámaras del dataset a ≤1 km</label>
+            <label><input type="checkbox" checked={layers.zones} onChange={event => setLayers(value => ({ ...value, zones: event.target.checked }))}/>Zonas de referencia del prototipo{demo ? ' y zonas DEMO' : ''}</label>
 
           </fieldset>
-          <p className="trace-legend">Turquesa: ruta planeada · Violeta: trayectoria {demo ? 'DEMO' : actualTrace.some(p => p.source === 'DEMO') ? 'mixta real/DEMO' : 'real'}</p>
+          <p className="trace-legend">Azul: ruta planeada · Turquesa: trayectoria · Ámbar: desviación &gt;40 m. {demo ? 'SIMULACIÓN' : actualTrace.some(p => p.source === 'DEMO') ? 'Trayectoria mixta real/DEMO' : 'Trayectoria real'}</p>
+          <details><summary>Zonas de referencia del prototipo</summary><ul>{riskZones.filter(zone => zone.reference).map(zone => <li key={zone.zone_id}>{zone.name} · Nivel {zone.level} · Radio {zone.radius_m} m</li>)}</ul></details>
           {(demo || layers.cameras) && <div className="demo-context">
             {layers.cameras && <details><summary>Cámara del dataset · información de los puntos</summary>
               <p>Información proveniente del dataset.</p>
-              {safetyCameras.length ? <ul>{safetyCameras.map(camera => <li key={camera.id}><strong>{camera.id} · {Math.round(camera.distance_m!)} m</strong><br/>Cámara del dataset{camera.hasHelpButton && <><br/>Botón de auxilio</>}{camera.hasSpeaker && <><br/>Altavoz</>}</li>)}</ul> : <p>No hay cámaras del dataset dentro de 500 m de la posición disponible.</p>}
+              {safetyCameras.length ? <ul>{safetyCameras.map(camera => <li key={camera.id}><strong>{camera.id} · {Math.round(camera.distance_m!)} m</strong><br/>Cámara del dataset<br/>{camera.esquina} · {camera.colonia} · {camera.alcaldia}<br/>Botón de auxilio: {camera.hasHelpButton ? 'Sí' : 'No'}<br/>Altavoz: {camera.hasSpeaker ? 'Sí' : 'No'}</li>)}</ul> : <p>No hay cámaras del dataset dentro de 1 km de la posición disponible.</p>}
             </details>}
             {demo && (
               <details><summary>ESCENARIO ESTADÍSTICO DEMO</summary><p>Amarillo: incidencia contextual DEMO media.<br/>Rojo: incidencia contextual DEMO alta.</p>
-              <ul>{riskZones.map(zone => <li key={zone.zone_id}><strong>{zone.zone_id} · {zone.severity === 'RED' ? 'ROJA' : 'AMARILLA'}</strong> · Incidentes del escenario: {zone.incident_count} · {zone.severity === 'RED' ? 'Percentil superior' : 'Rango intermedio del dataset'}</li>)}</ul>
+              <ul>{riskZones.filter(zone => !zone.reference).map(zone => <li key={zone.zone_id}><strong>{zone.zone_id} · {zone.severity === 'RED' ? 'ROJA' : 'AMARILLA'}</strong> · Incidentes del escenario: {zone.incident_count} · {zone.severity === 'RED' ? 'Percentil superior' : 'Rango intermedio del dataset'}</li>)}</ul>
               </details>
             )}
           </div>}

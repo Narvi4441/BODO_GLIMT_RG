@@ -23,7 +23,10 @@ export function MonitorPage({ token }: { token: string }) {
       try {
         const snapshot = await api.monitor(token, abort.signal)
         if (disposed || ended) return
-        setData(snapshot)
+        setData(previous => ({ ...snapshot,
+          planned_path: previous && JSON.stringify(previous.planned_path) === JSON.stringify(snapshot.planned_path)
+            ? previous.planned_path : snapshot.planned_path,
+        }))
         setStatus('active')
       } catch (error) {
         if (disposed) return
