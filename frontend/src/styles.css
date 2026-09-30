@@ -401,3 +401,79 @@ dialog .demo-banner { position: static; padding: 7px; margin: 0 0 16px; font-siz
   .route-summary .route-metrics strong { font-size: 21px; }
   .basic-status { gap: 6px; }
 }
+
+
+/* ===== Estado visual de desviaciones DEMO ===== */
+
+.demo-scenario {
+  position: relative;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.demo-scenario.active {
+  border-width: 2px;
+}
+
+.demo-scenario.active.moderate {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.10);
+}
+
+.demo-scenario.active.severe {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.10);
+}
+
+.scenario-active-label {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.demo-scenario.moderate .scenario-active-label {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+
+.demo-scenario.severe .scenario-active-label {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}
+
+.demo-deviation-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+}
+
+.demo-deviation-status strong {
+  font-size: 0.95rem;
+}
+
+.demo-deviation-status span {
+  font-size: 0.82rem;
+  opacity: 0.9;
+}
+
+.demo-deviation-status.moderate {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: rgba(245, 158, 11, 0.08);
+  color: #fbbf24;
+}
+
+.demo-deviation-status.severe {
+  border-color: rgba(239, 68, 68, 0.7);
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+}
