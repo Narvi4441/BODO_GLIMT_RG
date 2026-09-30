@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.schemas.telemetry import TelemetryIn
 from app.realtime.websocket import manager
@@ -12,6 +12,7 @@ from app.services.risk_state import (
 )
 
 from app.services.command_state import create_command
+from app.services.telemetry_repository import save_telemetry
 
 
 router = APIRouter(
@@ -23,6 +24,7 @@ router = APIRouter(
 @router.post("")
 async def receive_telemetry(
     telemetry: TelemetryIn,
+    background_tasks: BackgroundTasks,
 ):
     # 1. Validar que el viaje exista
     journey = get_journey(
@@ -60,6 +62,8 @@ async def receive_telemetry(
     data["risk_score"] = risk["score"]
     data["risk_status"] = risk["status"]
     data["risk_reasons"] = risk["reasons"]
+
+    background_tasks.add_task(save_telemetry, data.copy())
 
     # 6. Mandar telemetría por WebSocket
     await manager.broadcast(
