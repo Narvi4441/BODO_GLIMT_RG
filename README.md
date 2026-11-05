@@ -1,10 +1,10 @@
 # GUARDIAN Core
 
 React + TypeScript + Vite PWA en `frontend/`, FastAPI en `backend/app`, PostgreSQL
-como fuente persistente y Redis como estado realtime/?ndice geogr?fico. Se conservan
-el registro/login, telemetr?a, Risk Engine, WebSocket, comandos y ACK.
+como fuente persistente y Redis como estado realtime/índice geográfico. Se conservan
+el registro/login, telemetría, Risk Engine, WebSocket, comandos y ACK.
 
-## Backend (PowerShell, desde la ra?z)
+## Backend (PowerShell, desde la raíz)
 
 Requiere Python 3.11+, PostgreSQL con el esquema existente y Redis 6.2+.
 
@@ -16,7 +16,7 @@ if (!(Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
 ```
 
 Configura `DATABASE_URL`, `REDIS_URL` y `TELEMETRY_OFFLINE_TIMEOUT_SECONDS=15` en
-`backend/.env`. La conexi?n de PostgreSQL solo existe en el backend.
+`backend/.env`. La conexión de PostgreSQL solo existe en el backend.
 
 ```powershell
 .\backend\.venv\Scripts\python.exe scripts\migrate.py --check
@@ -26,11 +26,11 @@ cd backend
 ```
 
 API: http://localhost:8000/docs. Ejecutar un worker/replica: el transporte WebSocket
-conserva conexiones locales; el estado de negocio s? sobrevive reinicios.
+conserva conexiones locales; el estado de negocio sí sobrevive reinicios.
 
 ## Frontend existente
 
-En otra terminal, desde la ra?z:
+En otra terminal, desde la raíz:
 
 ```powershell
 cd frontend
@@ -38,8 +38,8 @@ npm install
 npm run dev -- --host
 ```
 
-Configura `VITE_API_URL` y `VITE_WS_URL` seg?n `frontend/.env.example`. Para GPS/PWA
-en tel?fono usa HTTPS. El backend actual no sirve la PWA en `/ui/`.
+Configura `VITE_API_URL` y `VITE_WS_URL` según `frontend/.env.example`. Para GPS/PWA
+en teléfono usa HTTPS. El backend actual no sirve la PWA en `/ui/`.
 
 ## Persistencia y C5
 
@@ -58,9 +58,9 @@ y los hashes `meta:camara:{id}` sin acceder a PostgreSQL.
 El importador WiFi y la persistencia PostgreSQL de C5 quedaron archivados.
 La migración C5 003 no se ejecuta; las de persistencia de journeys siguen activas.
 
-[Registro de usuario/tutor y verificaci?n de contrase?as](docs/registro.md).
-La verificaci?n de credenciales existente no emite sesiones/tokens para proteger
-las APIs; este bloque no agrega un sistema de autorizaci?n.
+[Registro de usuario/tutor y verificación de contraseñas](docs/registro.md).
+La verificación de credenciales existente no emite sesiones/tokens para proteger
+las APIs; este bloque no agrega un sistema de autorización.
 
 El registro detallado de pruebas distingue lo ejecutado de lo pendiente. Sin una
-captura real de tel?fono no se declara probado el flujo de telemetr?a/riesgo.
+captura real de teléfono no se declara probado el flujo de telemetría/riesgo.

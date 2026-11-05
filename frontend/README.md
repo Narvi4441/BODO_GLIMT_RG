@@ -1,6 +1,6 @@
 # GUARDIAN Core · PWA
 
-Migración del HTML/JS existente a React + TypeScript + Vite + vite-plugin-pwa. Solo se modificó `frontend/`. El código anterior se conserva íntegro en `legacy/index.html` y `legacy/auth.js` como referencia; no se incorpora al build ni a la caché offline.
+Migración del HTML/JS existente a React + TypeScript + Vite + vite-plugin-pwa. Solo se modificó `frontend/`. El HTML/JS anterior se puede consultar en el historial de Git.
 
 ## Ejecutar en PowerShell
 
