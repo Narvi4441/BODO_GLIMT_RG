@@ -222,3 +222,14 @@ node_modules/
 .tools/
 *.tsbuildinfo
 
+
+# GUARDIAN: archivos locales que no deben versionarse
+node_modules/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.patch
+.vscode/
+.idea/
+.DS_Store

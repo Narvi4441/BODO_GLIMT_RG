@@ -68,16 +68,11 @@ export default defineConfig(({ mode }) => {
             '**/*.{js,css,html,png,svg,woff2}',
           ],
 
-          globIgnores: [
-            'legacy/**',
-          ],
-
           navigateFallback: '/index.html',
 
           navigateFallbackDenylist: [
             /^\/api\//,
             /^\/ws\//,
-            /^\/legacy\//,
           ],
 
           cleanupOutdatedCaches: true,
