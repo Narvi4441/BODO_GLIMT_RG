@@ -20,7 +20,7 @@ class Config:
     TELEMETRY_OFFLINE_TIMEOUT_SECONDS = max(1, int(os.getenv("TELEMETRY_OFFLINE_TIMEOUT_SECONDS", "15")))
     
     # Aquí va la llave
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyCYlisYDD9HP9VjF2-CZWKci6Pz3qmpN48")
     CORS_ORIGINS = [origin.strip() for origin in os.getenv(
         "CORS_ORIGINS",
         "https://bodo-glimt-rg.vercel.app,"
